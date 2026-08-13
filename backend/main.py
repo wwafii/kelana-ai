@@ -27,7 +27,7 @@ def print_trip_summary(
     """
     Mencetak ringkasan rekomendasi perjalanan yang terstruktur berdasarkan kalkulasi dan analisis bisnis.
     """
-    category = get_trip_category(budget)
+    category = get_trip_category(budget=budget, currency=currency)
     daily_budget = calculate_daily_budget(budget, days)
     season = get_travel_season(travel_month)
     places = get_recommended_places(destination)

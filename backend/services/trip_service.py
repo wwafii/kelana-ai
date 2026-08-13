@@ -23,22 +23,41 @@ def calculate_daily_budget(budget: float, days: int) -> float:
     return budget / days
 
 
-def get_trip_category(budget: float) -> str:
+def get_trip_category(budget: float, currency: str = "USD") -> str:
     """
-    Menentukan kategori perjalanan berdasarkan besaran anggaran.
+    Menentukan kategori perjalanan berdasarkan besaran anggaran dan mata uang.
+    Mendukung konversi/normalisasi multi-mata uang (seperti IDR, USD, SGD, EUR, dll.) ke basis USD.
+
+    Aturan Kategori (Basis USD):
     - Budget < 1000          -> "Backpacker"
     - 1000 <= Budget <= 3000 -> "Standard"
     - Budget > 3000          -> "Luxury"
 
     Args:
         budget (float): Total anggaran perjalanan.
+        currency (str, optional): Kode mata uang (contoh: "USD", "IDR"). Default "USD".
 
     Returns:
         str: Kategori perjalanan ("Backpacker", "Standard", atau "Luxury").
     """
-    if budget < 1000:
+    rates_to_usd = {
+        "USD": 1.0,
+        "IDR": 1 / 16000.0,
+        "SGD": 0.75,
+        "EUR": 1.08,
+        "GBP": 1.28,
+        "JPY": 0.0067,
+        "MYR": 0.22,
+        "AUD": 0.65,
+    }
+
+    curr = str(currency).strip().upper()
+    rate = rates_to_usd.get(curr, 1.0)
+    budget_in_usd = budget * rate
+
+    if budget_in_usd < 1000:
         return "Backpacker"
-    elif budget <= 3000:
+    elif budget_in_usd <= 3000:
         return "Standard"
     else:
         return "Luxury"
