@@ -1,0 +1,23 @@
+# Documentation files (as requested)
+docs/
+*.Zone.Identifier
+*:Zone.Identifier
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE / Editor configuration & OS metadata
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
