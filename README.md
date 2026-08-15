@@ -8,8 +8,9 @@ KelanaAI adalah aplikasi asisten perjalanan cerdas yang dirancang untuk membantu
 KelanaAi/
 ├── .gitignore
 ├── README.md
+├── requirements.txt               # Dependensi proyek (FastAPI, Uvicorn)
 ├── backend/
-│   ├── main.py                    # Presentation Layer (CLI I/O)
+│   ├── main.py                    # Web Layer (FastAPI REST API)
 │   └── services/                  # Business Logic Layer
 │       ├── __init__.py
 │       └── trip_service.py        # Logic: Category, Season, Daily Budget, Recommendations
@@ -38,41 +39,86 @@ KelanaAi/
 - **Kalkulasi Anggaran Harian (`calculate_daily_budget`)**: Menghitung alokasi anggaran per hari (`budget / days`).
 - **Rekomendasi Tempat (`get_recommended_places`)**: Menampilkan daftar destinasi wisata rekomendasi.
 
+### 3. Sesi 3: Teaching KelanaAI to Communicate (REST API dengan FastAPI)
+- **Web Layer (REST API)**: Mengonversi interface konsol menjadi REST API berbasis FastAPI.
+- **Prinsip Separation of Concerns**: Menggunakan kembali seluruh kode logika bisnis dari `trip_service.py` tanpa perubahan.
+- **Model Validasi Pydantic**: `TripRequest` untuk memvalidasi request body secara otomatis.
+- **REST Endpoints**:
+  - `GET /`: Sambutan (`{"message": "Welcome to KelanaAI"}`)
+  - `GET /health`: Health check server (`{"status": "OK"}`)
+  - `POST /api/v1/trips`: Menghitung alokasi harian dan kategori perjalanan.
+- **Dokumentasi Interaktif**: Swagger UI otomatis di `/docs` dan ReDoc di `/redoc`.
+
 ---
 
 ## 🛠️ Cara Menjalankan
 
-1. Pastikan Python 3 sudah terpasang di sistem Anda.
-2. Jalankan aplikasi melalui terminal:
-
+### 1. Install Dependensi
 ```bash
-python3 backend/main.py
+pip install -r requirements.txt
 ```
 
-### Contoh Penggunaan
+### 2. Jalankan FastAPI Server dengan Uvicorn
 
+Dari root direktori:
+```bash
+uvicorn backend.main:app --reload
+```
+
+Atau masuk ke direktori `backend`:
+```bash
+cd backend
+uvicorn main:app --reload
+```
+
+Server akan aktif di `http://localhost:8000`.
+
+### 3. Akses Swagger UI
+Buka browser dan navigasikan ke:
 ```text
-=== Welcome to KelanaAI Recommendation Generator ===
+http://localhost:8000/docs
+```
 
-Enter destination: Japan
-Enter duration (days): 5
-Enter budget: 1500
-Enter currency (e.g. USD, IDR): USD
-Enter travel month: December
+---
 
-==================================
-KelanaAI
-==================================
-Destination     : Japan
-Days            : 5
-Budget          : 1500 USD
-Category        : Standard
-Daily Budget    : 300 USD/Day
-Travel Month    : December
-Season          : Peak Season
+## 📡 Dokumentasi Endpoint & Contoh Penggunaan
 
-Recommended Places
-- Tokyo Tower
-- Shibuya
-- Mount Fuji
+### 1. Welcome Message
+- **Endpoint**: `GET /`
+- **Response (200 OK)**:
+```json
+{
+  "message": "Welcome to KelanaAI"
+}
+```
+
+### 2. Health Check
+- **Endpoint**: `GET /health`
+- **Response (200 OK)**:
+```json
+{
+  "status": "OK"
+}
+```
+
+### 3. Trip Calculation
+- **Endpoint**: `POST /api/v1/trips`
+- **Headers**: `Content-Type: application/json`
+- **Request Body**:
+```json
+{
+  "destination": "Japan",
+  "days": 5,
+  "budget": 2000
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "destination": "Japan",
+  "days": 5,
+  "budget": 2000.0,
+  "daily_budget": 400.0,
+  "category": "Standard"
+}
 ```

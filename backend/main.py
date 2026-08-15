@@ -1,85 +1,67 @@
 """
-KelanaAI - Presentation Layer (CLI)
-Menangani input/output dari pengguna dan menampilkan rekomendasi perjalanan.
+KelanaAI - Web Layer (FastAPI REST API)
+Menyediakan REST API endpoints untuk asisten perjalanan KelanaAI
+dengan mengintegrasikan Business Logic Layer dari services.trip_service.
 """
 
 import os
 import sys
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
 
 # Memastikan direktori backend berada di sys.path agar impor modul services berjalan lancar
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from services.trip_service import (
     calculate_daily_budget,
-    get_recommended_places,
-    get_travel_season,
     get_trip_category,
 )
 
+app = FastAPI(
+    title="KelanaAI",
+    description="RESTful Web API for AI-Powered Travel Planning Assistant",
+    version="0.3.0",
+)
 
-def print_trip_summary(
-    destination: str,
-    days: int,
-    budget: float,
-    currency: str,
-    travel_month: str,
-) -> None:
+
+class TripRequest(BaseModel):
     """
-    Mencetak ringkasan rekomendasi perjalanan yang terstruktur berdasarkan kalkulasi dan analisis bisnis.
+    Schema model validasi request body untuk perencanaan perjalanan.
     """
-    category = get_trip_category(budget=budget, currency=currency)
-    daily_budget = calculate_daily_budget(budget, days)
-    season = get_travel_season(travel_month)
-    places = get_recommended_places(destination)
-
-    formatted_budget = (
-        f"{int(budget)} {currency}"
-        if budget.is_integer()
-        else f"{budget} {currency}"
-    )
-    formatted_daily_budget = (
-        f"{int(daily_budget)} {currency}/Day"
-        if daily_budget.is_integer()
-        else f"{daily_budget:.2f} {currency}/Day"
-    )
-
-    print("\n==================================")
-    print("KelanaAI")
-    print("==================================")
-    print(f"Destination     : {destination}")
-    print(f"Days            : {days}")
-    print(f"Budget          : {formatted_budget}")
-    print(f"Category        : {category}")
-    print(f"Daily Budget    : {formatted_daily_budget}")
-    print(f"Travel Month    : {travel_month}")
-    print(f"Season          : {season}")
-    print("\nRecommended Places")
-    for place in places:
-        print(f"- {place}")
+    destination: str = Field(..., description="Destinasi atau kota/negara tujuan perjalanan", example="Japan")
+    days: int = Field(..., gt=0, description="Durasi perjalanan dalam hari", example=5)
+    budget: float = Field(..., ge=0, description="Total anggaran perjalanan", example=2000.0)
 
 
-def main() -> None:
+@app.get("/")
+def home() -> dict:
     """
-    Fungsi utama untuk menerima input interaktif dari pengguna dan menjalankan Recommendation Engine.
+    Root endpoint sambutan KelanaAI.
     """
-    print("=== Welcome to KelanaAI Recommendation Generator ===\n")
-
-    destination = input("Enter destination: ").strip()
-    days = int(input("Enter duration (days): ").strip())
-    budget = float(input("Enter budget: ").strip())
-    currency = input("Enter currency (e.g. USD, IDR): ").strip()
-    if not currency:
-        currency = "USD"
-    travel_month = input("Enter travel month: ").strip()
-
-    print_trip_summary(
-        destination=destination,
-        days=days,
-        budget=budget,
-        currency=currency,
-        travel_month=travel_month,
-    )
+    return {"message": "Welcome to KelanaAI"}
 
 
-if __name__ == "__main__":
-    main()
+@app.get("/health")
+def health_check() -> dict:
+    """
+    Endpoint health check untuk memantau status aplikasi/server.
+    """
+    return {"status": "OK"}
+
+
+@app.post("/api/v1/trips")
+def create_trip(request: TripRequest) -> dict:
+    """
+    Membuat rekomendasi dan ringkasan kalkulasi perjalanan berdasarkan data input.
+    Menggunakan kembali logika bisnis yang ada di services/trip_service.py.
+    """
+    daily_budget = calculate_daily_budget(request.budget, request.days)
+    category = get_trip_category(request.budget)
+
+    return {
+        "destination": request.destination,
+        "days": request.days,
+        "budget": request.budget,
+        "daily_budget": daily_budget,
+        "category": category,
+    }
