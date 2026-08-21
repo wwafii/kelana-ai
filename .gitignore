@@ -14,6 +14,11 @@ venv/
 .venv/
 env/
 
+# Environment variables
+.env
+.env.*
+!.env.example
+
 # IDE / Editor configuration & OS metadata
 .idea/
 .vscode/
