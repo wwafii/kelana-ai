@@ -9,18 +9,20 @@ KelanaAi/
 ├── .env.example
 ├── .gitignore
 ├── README.md
-├── requirements.txt               # Dependensi proyek (FastAPI, Uvicorn, SQLAlchemy, psycopg2-binary, python-dotenv)
+├── requirements.txt               # Dependensi proyek (FastAPI, Uvicorn, SQLAlchemy, psycopg2-binary, python-dotenv, boto3)
 ├── backend/
-│   ├── database.py                # Persistence Layer (DB Engine & SessionLocal)
-│   ├── main.py                    # Web Layer (FastAPI REST API CRUD)
+│   ├── database.py                # Persistence Layer (DB Engine, SessionLocal & Schema Init)
+│   ├── main.py                    # Web Layer (FastAPI REST API CRUD & AI Generation)
 │   ├── models/                    # Data Layer (SQLAlchemy ORM Models)
 │   │   ├── __init__.py
-│   │   └── trip.py                # Model Tabel Trip
-│   └── services/                  # Business Logic Layer
+│   │   └── trip.py                # Model Tabel Trip (dengan kolom ai_recommendation)
+│   └── services/                  # Business Logic & AI Services Layer
 │       ├── __init__.py
-│       └── trip_service.py        # Logic: Category, Season, Daily Budget, Recommendations
+│       ├── trip_service.py        # Logic: Category, Season, Daily Budget, Recommendations
+│       └── bedrock_service.py     # AI Integration: Amazon Bedrock Converse API & Rich Prompt
 └── frontend/
-    └── .gitkeep                   # Reserved for Next.js (Session 5+)
+    └── .gitkeep                   # Reserved for Next.js (Session 6+)
+
 ```
 
 ---
@@ -60,6 +62,15 @@ KelanaAi/
   - `PUT /api/v1/trips/{id}`: Memperbarui budget perjalanan dan menghitung ulang (*recalculate*) `category` serta `daily_budget` sebelum disimpan.
   - `DELETE /api/v1/trips/{id}`: Menghapus data perjalanan dari database (mengembalikan 404 jika tidak ditemukan).
 
+### 5. Sesi 5: Teaching KelanaAI to Think with AI (Amazon Bedrock Integration)
+- **AI-Native Transformation**: Bertransisi dari rule-based ke generative AI menggunakan Amazon Bedrock Foundation Models (Amazon Nova Lite / Claude).
+- **Richer Prompt Engineering**: Prompt terstruktur untuk menghasilkan rencana perjalanan harian (*structured daily plan*):
+  - **Morning activities**: 2-3 aktivitas pagi spesifik per hari.
+  - **Afternoon activities**: Rekomendasi situs budaya (*cultural sites*) dan pengalaman lokal.
+  - **Evening activities**: Tempat makan malam (*dinner spots*) dan hiburan malam (*nightlife*).
+- **AI Recommendation Persistence**: Hasil generasi AI disimpan langsung ke PostgreSQL pada kolom `ai_recommendation` di tabel `trips`.
+- **AI Generation Endpoint**: `POST /api/v1/trips/{id}/generate` untuk meng-orchestrate pengambilan data trip, pemanggilan model Bedrock via Converse API, dan penyimpanan hasil ke database.
+
 ---
 
 ## 🛠️ Cara Menjalankan
@@ -69,15 +80,19 @@ Buat file `.env` dari template `.env.example`:
 ```bash
 cp .env.example .env
 ```
-Sesuaikan konfigurasi `DATABASE_URL` di dalam file `.env`:
+Sesuaikan konfigurasi di dalam file `.env`:
 ```env
 DATABASE_URL=postgresql+psycopg2://<user>:<password>@localhost:5432/kelana_ai
+AWS_BEARER_TOKEN_BEDROCK=sk-bedrock-xxxxxxxxxxxxxxxxx
+AWS_REGION=ap-southeast-2
+MODEL_ID=amazon.nova-lite-v1:0
 ```
 
 Install seluruh dependensi:
 ```bash
 pip install -r requirements.txt
 ```
+
 
 ### 2. Jalankan FastAPI Server dengan Uvicorn
 
@@ -216,3 +231,22 @@ http://localhost:8000/docs
   "detail": "Trip with id 1 not found"
 }
 ```
+
+### 8. Generate AI Trip Recommendation (POST)
+- **Endpoint**: `POST /api/v1/trips/{id}/generate`
+- **Deskripsi**: Menghasilkan rencana perjalanan harian (*structured daily plan*) yang kaya menggunakan Amazon Bedrock LLM dan menyimpan hasilnya ke database PostgreSQL pada kolom `ai_recommendation`.
+- **Response (200 OK)**:
+```json
+{
+  "trip_id": 1,
+  "destination": "Japan",
+  "recommendation": "Day 1: Exploring Japan\n\nMorning:\n- Visit Senso-ji Temple early to avoid crowds.\n- Take a stroll around Nakamise Shopping Street.\n- Have breakfast at a traditional local bakery nearby.\n\nAfternoon:\n- Experience a traditional Japanese tea ceremony.\n- Explore the Tokyo National Museum to learn about local culture and history.\n\nEvening:\n- Enjoy dinner at an authentic Izakaya in Hoppy Street.\n- Experience the vibrant local nightlife and city lights around Asakusa."
+}
+```
+- **Response jika ID tidak ditemukan (404 Not Found)**:
+```json
+{
+  "detail": "Trip with id 999 not found"
+}
+```
+

@@ -1,7 +1,8 @@
 """
 KelanaAI - Web Layer (FastAPI REST API)
 Menyediakan REST API endpoints untuk asisten perjalanan KelanaAI
-dengan mengintegrasikan Business Logic Layer (services.trip_service)
+dengan mengintegrasikan Business Logic Layer (services.trip_service),
+AI Service Layer (services.bedrock_service dengan Amazon Bedrock),
 dan Persistence Layer (database PostgreSQL via SQLAlchemy ORM).
 """
 
@@ -16,6 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from database import SessionLocal, init_db
 from models.trip import Trip
+from services.bedrock_service import generate_travel_recommendation
 from services.trip_service import (
     calculate_daily_budget,
     get_trip_category,
@@ -23,8 +25,8 @@ from services.trip_service import (
 
 app = FastAPI(
     title="KelanaAI",
-    description="RESTful Web API with PostgreSQL Persistence for AI-Powered Travel Planning Assistant",
-    version="0.4.0",
+    description="RESTful Web API with PostgreSQL Persistence & Amazon Bedrock Generative AI for Travel Planning",
+    version="0.5.0",
 )
 
 # Inisialisasi tabel database saat aplikasi dimuat
@@ -35,18 +37,18 @@ class TripRequest(BaseModel):
     """
     Schema model validasi request body untuk pembuatan data perjalanan baru.
     """
-    destination: str = Field(..., description="Destinasi atau kota/negara tujuan perjalanan", example="Japan")
-    days: int = Field(..., gt=0, description="Durasi perjalanan dalam hari", example=5)
-    budget: float = Field(..., ge=0, description="Total anggaran perjalanan", example=2000.0)
+    destination: str = Field(..., description="Destinasi atau kota/negara tujuan perjalanan", examples=["Japan"])
+    days: int = Field(..., gt=0, description="Durasi perjalanan dalam hari", examples=[5])
+    budget: float = Field(..., ge=0, description="Total anggaran perjalanan", examples=[2000.0])
 
 
 class TripUpdate(BaseModel):
     """
     Schema model validasi request body untuk pembaruan anggaran (budget) perjalanan.
     """
-    budget: float = Field(..., ge=0, description="Total anggaran perjalanan yang baru", example=2500.0)
-    destination: Optional[str] = Field(None, description="Destinasi tujuan perjalanan baru (opsional)", example="Japan")
-    days: Optional[int] = Field(None, gt=0, description="Durasi perjalanan baru dalam hari (opsional)", example=5)
+    budget: float = Field(..., ge=0, description="Total anggaran perjalanan yang baru", examples=[2500.0])
+    destination: Optional[str] = Field(None, description="Destinasi tujuan perjalanan baru (opsional)", examples=["Japan"])
+    days: Optional[int] = Field(None, gt=0, description="Durasi perjalanan baru dalam hari (opsional)", examples=[5])
 
 
 class TripResponse(BaseModel):
@@ -59,8 +61,20 @@ class TripResponse(BaseModel):
     budget: float
     category: str
     daily_budget: float
+    ai_recommendation: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TripGenerateResponse(BaseModel):
+    """
+    Schema model respons hasil generate rekomendasi rencana perjalanan AI dari Amazon Bedrock.
+    """
+    trip_id: int = Field(..., description="ID perjalanan yang di-generate", examples=[1])
+    destination: str = Field(..., description="Destinasi tujuan perjalanan", examples=["Japan"])
+    recommendation: str = Field(..., description="Rencana dan rekomendasi perjalanan harian yang dihasilkan oleh AI")
+
+
 
 
 @app.get("/")
@@ -193,3 +207,56 @@ def delete_trip(id: int) -> dict:
         return {"message": f"Trip with id {id} deleted successfully"}
     finally:
         db.close()
+
+
+@app.post(
+    "/api/v1/trips/{id}/generate",
+    response_model=TripGenerateResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate AI Travel Recommendation",
+    description="Menghasilkan rekomendasi rencana perjalanan berbasis AI (Amazon Bedrock) dan menyimpannya ke database PostgreSQL.",
+)
+def generate_trip_itinerary(id: int):
+    """
+    Menghasilkan rekomendasi rencana perjalanan harian (structured daily itinerary) yang kaya
+    menggunakan Amazon Bedrock untuk data trip tertentu, lalu menyimpan hasilnya ke kolom
+    ai_recommendation di database PostgreSQL.
+
+    Jika trip ID tidak ditemukan, mengembalikan HTTP 404.
+    """
+    db = SessionLocal()
+    try:
+        trip = db.query(Trip).filter(Trip.id == id).first()
+        if trip is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Trip with id {id} not found",
+            )
+
+        try:
+            ai_recommendation = generate_travel_recommendation(
+                destination=trip.destination,
+                days=trip.days,
+                budget=trip.budget,
+                category=trip.category,
+                daily_budget=trip.daily_budget,
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Bedrock AI generation failed: {str(e)}",
+            )
+
+        # Simpan hasil rekomendasi AI ke kolom ai_recommendation pada PostgreSQL
+        trip.ai_recommendation = ai_recommendation
+        db.commit()
+        db.refresh(trip)
+
+        return TripGenerateResponse(
+            trip_id=trip.id,
+            destination=trip.destination,
+            recommendation=trip.ai_recommendation,
+        )
+    finally:
+        db.close()
+

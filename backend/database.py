@@ -5,7 +5,7 @@ Mengelola koneksi database PostgreSQL, engine, session factory, dan Base model.
 
 import os
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # load .env so os.getenv() can read it
@@ -31,3 +31,11 @@ Base = declarative_base()
 def init_db() -> None:
     """Create all SQLAlchemy tables for the configured database."""
     Base.metadata.create_all(bind=engine)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS ai_recommendation TEXT;"))
+            conn.commit()
+    except Exception:
+        # Ignore errors if table does not exist or database dialect doesn't support the syntax
+        pass
+
