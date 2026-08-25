@@ -10,6 +10,7 @@ import os
 import sys
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
 # Memastikan direktori backend berada di sys.path agar impor modul services dan database berjalan lancar
@@ -27,6 +28,15 @@ app = FastAPI(
     title="KelanaAI",
     description="RESTful Web API with PostgreSQL Persistence & Amazon Bedrock Generative AI for Travel Planning",
     version="0.5.0",
+)
+
+# Konfigurasi CORS agar frontend Next.js (http://localhost:3000) dapat mengakses REST API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Inisialisasi tabel database saat aplikasi dimuat

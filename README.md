@@ -12,7 +12,7 @@ KelanaAi/
 ├── requirements.txt               # Dependensi proyek (FastAPI, Uvicorn, SQLAlchemy, psycopg2-binary, python-dotenv, boto3)
 ├── backend/
 │   ├── database.py                # Persistence Layer (DB Engine, SessionLocal & Schema Init)
-│   ├── main.py                    # Web Layer (FastAPI REST API CRUD & AI Generation)
+│   ├── main.py                    # Web Layer (FastAPI REST API CRUD & AI Generation with CORS)
 │   ├── models/                    # Data Layer (SQLAlchemy ORM Models)
 │   │   ├── __init__.py
 │   │   └── trip.py                # Model Tabel Trip (dengan kolom ai_recommendation)
@@ -20,9 +20,26 @@ KelanaAi/
 │       ├── __init__.py
 │       ├── trip_service.py        # Logic: Category, Season, Daily Budget, Recommendations
 │       └── bedrock_service.py     # AI Integration: Amazon Bedrock Converse API & Rich Prompt
-└── frontend/
-    └── .gitkeep                   # Reserved for Next.js (Session 6+)
-
+└── frontend/                      # User Interface Layer (Next.js 15, React, Tailwind CSS)
+    ├── app/
+    │   ├── globals.css            # Tailwind CSS styling & themes
+    │   ├── layout.tsx             # Root layout with Geist font & metadata
+    │   └── page.tsx               # Interactive AI Travel Planner Homepage
+    ├── components/
+    │   ├── Navbar.tsx             # Responsive sticky navigation header
+    │   ├── Hero.tsx               # Destination hero image banner & quick suggestion pills
+    │   ├── TravelForm.tsx         # Responsive travel planner form with real-time budget calculation
+    │   ├── LoadingSpinner.tsx     # Animated Bedrock AI thinking loading indicator
+    │   ├── ErrorMessage.tsx       # Graceful error banner with retry controls
+    │   ├── ItineraryResult.tsx    # Rich day-by-day structured itinerary cards, dining & tips
+    │   ├── DestinationShowcase.tsx# Curated popular destination cards
+    │   ├── Features.tsx           # Architecture & workflow overview
+    │   └── Footer.tsx             # Informative footer with copyright & navigation links
+    ├── lib/
+    │   ├── api.ts                 # FastAPI REST API client
+    │   └── parser.ts              # Intelligent itinerary markdown/text parser
+    └── types/
+        └── index.ts               # TypeScript data definitions & interfaces
 ```
 
 ---
@@ -71,11 +88,21 @@ KelanaAi/
 - **AI Recommendation Persistence**: Hasil generasi AI disimpan langsung ke PostgreSQL pada kolom `ai_recommendation` di tabel `trips`.
 - **AI Generation Endpoint**: `POST /api/v1/trips/{id}/generate` untuk meng-orchestrate pengambilan data trip, pemanggilan model Bedrock via Converse API, dan penyimpanan hasil ke database.
 
+### 6. Sesi 6: Giving KelanaAI a Face (Next.js Frontend & Tailwind CSS)
+- **Modern Web Interface**: Antarmuka web interaktif menggunakan Next.js 15, React 19, TypeScript, dan Tailwind CSS.
+- **Better Styling & Professional Typography**: Tata letak, warna, tipografi, card elevation, dan micro-interactions modern.
+- **Destination Hero Visual**: Hero banner visual beresolusi tinggi dengan preset destinasi populer untuk kemudahan pengisian form.
+- **Responsive Layout**: Layout responsif penuh untuk mobile dan desktop (kolom form menyusun vertikal pada mobile dan sejajar horizontal pada layar lebar).
+- **Interactive Travel Planner Form**: Real-time daily budget calculation, kategori otomatis (*tier preview*), dan integrasi mulus dengan REST API FastAPI.
+- **Loading & Graceful Error States**: Animated spinner (*animate-spin*) dengan status feedback "Amazon Bedrock is thinking", serta error handling ramah pengguna dengan tombol coba lagi.
+- **Rich AI Output Sections**: Rekomendasi AI dipecah menjadi kartu visual harian (*Morning*, *Afternoon*, *Evening*), rekomendasi kuliner lokal, tips wisata cerdas, serta rincian estimasi anggaran.
+- **Footer**: Struktur halaman lengkap dengan informasi hak cipta dan tautan navigasi.
+
 ---
 
 ## 🛠️ Cara Menjalankan
 
-### 1. Konfigurasi Environment & Install Dependensi
+### 1. Konfigurasi Environment & Install Dependensi Backend
 Buat file `.env` dari template `.env.example`:
 ```bash
 cp .env.example .env
@@ -88,32 +115,34 @@ AWS_REGION=ap-southeast-2
 MODEL_ID=amazon.nova-lite-v1:0
 ```
 
-Install seluruh dependensi:
+Install dependensi backend:
 ```bash
 pip install -r requirements.txt
 ```
 
+### 2. Install Dependensi & Jalankan Frontend (Next.js)
 
-### 2. Jalankan FastAPI Server dengan Uvicorn
+Masuk ke direktori `frontend`:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Frontend web application akan aktif di `http://localhost:3000`.
+
+### 3. Jalankan FastAPI Server Backend dengan Uvicorn
 
 Dari root direktori:
 ```bash
 uvicorn backend.main:app --reload
 ```
 
-Atau masuk ke direktori `backend`:
-```bash
-cd backend
-uvicorn main:app --reload
-```
+Backend REST API akan aktif di `http://localhost:8000`.
 
-Server akan aktif di `http://localhost:8000`.
+### 4. Akses Swagger UI & Web App
+- Web Interface: `http://localhost:3000`
+- Swagger REST API Docs: `http://localhost:8000/docs`
 
-### 3. Akses Swagger UI
-Buka browser dan navigasikan ke:
-```text
-http://localhost:8000/docs
-```
 
 ---
 
