@@ -1,5 +1,20 @@
 import { DailyPlan, ParsedItinerary } from "@/types";
 
+function isConclusionOrMeta(line: string): boolean {
+  const lower = line.toLowerCase().trim();
+  return (
+    lower.startsWith("this itinerary") ||
+    lower.startsWith("enjoy your") ||
+    lower.startsWith("have a wonderful") ||
+    lower.startsWith("note:") ||
+    lower.startsWith("total budget") ||
+    lower.includes("all within your daily budget") ||
+    lower.includes("enjoy your journey") ||
+    lower.startsWith("hope you") ||
+    lower.startsWith("safe travels")
+  );
+}
+
 export function parseAIItinerary(
   rawText: string,
   destination: string,
@@ -34,7 +49,14 @@ export function parseAIItinerary(
       return text
         .split("\n")
         .map((line) => line.replace(/^[\s*\-–•\d.]+\s*/, "").trim())
-        .filter((line) => line.length > 0 && !line.toLowerCase().startsWith("morning") && !line.toLowerCase().startsWith("afternoon") && !line.toLowerCase().startsWith("evening"));
+        .filter(
+          (line) =>
+            line.length > 0 &&
+            !line.toLowerCase().startsWith("morning") &&
+            !line.toLowerCase().startsWith("afternoon") &&
+            !line.toLowerCase().startsWith("evening") &&
+            !isConclusionOrMeta(line)
+        );
     };
 
     if (morningMatch) {
@@ -58,39 +80,47 @@ export function parseAIItinerary(
         morning.push(...allBullets);
       } else {
         const cleanContent = dayContent.trim();
-        if (cleanContent) {
+        if (cleanContent && !isConclusionOrMeta(cleanContent)) {
           morning.push(cleanContent);
         }
       }
     }
 
-    // Extract culinary highlights from evening or morning/afternoon mentions
+    // Extract culinary highlights strictly
     [...morning, ...afternoon, ...evening].forEach((act) => {
       const lower = act.toLowerCase();
-      if (
-        (lower.includes("dinner") ||
+      const isCulinary =
+        (lower.includes("breakfast") ||
           lower.includes("lunch") ||
-          lower.includes("breakfast") ||
-          lower.includes("culinary") ||
-          lower.includes("food") ||
-          lower.includes("cafe") ||
-          lower.includes("café") ||
-          lower.includes("restaurant") ||
-          lower.includes("eat") ||
-          lower.includes("taste") ||
+          lower.includes("dinner") ||
+          lower.includes("kaiseki") ||
+          lower.includes("sushi") ||
           lower.includes("izakaya") ||
-          lower.includes("street food")) &&
-        !foodRecommendations.includes(act)
-      ) {
+          lower.includes("restaurant") ||
+          lower.includes("culinary") ||
+          lower.includes("dining") ||
+          lower.includes("tasting") ||
+          lower.includes("omakase") ||
+          lower.includes("bistro") ||
+          lower.includes("ramen") ||
+          lower.includes("bakery") ||
+          lower.includes("street food") ||
+          lower.includes("tea house")) &&
+        !lower.includes("theme park") &&
+        !lower.includes("shopping") &&
+        !lower.includes("outlets") &&
+        !isConclusionOrMeta(act);
+
+      if (isCulinary && !foodRecommendations.includes(act)) {
         foodRecommendations.push(act);
       }
     });
 
-    const titleMatch = match[0].split("\n")[0].replace(/^#+\s*/, "").trim();
+    const rawTitle = match[0].split("\n")[0].replace(/^#+\s*/, "").replace(/^[*_~]+|[*_~]+$/g, "").trim();
 
     dailyPlans.push({
       dayNumber: dayNum,
-      title: titleMatch.length > 5 ? titleMatch : `Day ${dayNum}: Discovering ${destination}`,
+      title: rawTitle.length > 5 ? rawTitle : `Day ${dayNum}: Discovering ${destination}`,
       morning: morning.length > 0 ? morning : ["Explore the neighborhood and enjoy local breakfast."],
       afternoon: afternoon.length > 0 ? afternoon : ["Visit cultural landmarks and scenic spots."],
       evening: evening.length > 0 ? evening : ["Dine at a local restaurant and experience the nightlife."],
@@ -114,7 +144,7 @@ export function parseAIItinerary(
   travelTips.push(`Optimized for ${category} travel style with ~$${dailyBudget.toFixed(0)}/day allowance.`);
   travelTips.push(`Use public transit (subway/trains) for efficient city navigation.`);
   travelTips.push(`Carry a lightweight daypack with reusable water bottle and power bank.`);
-  travelTips.push(`Book major museum and landmark tickets online in advance to skip lines.`);
+  travelTips.push(`Book major museum, landmark, and restaurant reservations in advance.`);
 
   // If no food extracted, add fallback recommendations
   if (foodRecommendations.length === 0) {

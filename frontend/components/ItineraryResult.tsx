@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ParsedItinerary } from "@/types";
+import FormattedText from "@/components/FormattedText";
 import {
   MapPin,
   Calendar,
@@ -193,9 +194,11 @@ export default function ItineraryResult({ itinerary, onReset }: ItineraryResultP
                             <span className="w-8 h-8 rounded-xl bg-sky-600 text-white font-extrabold flex items-center justify-center text-sm shadow-sm">
                               D{day.dayNumber}
                             </span>
-                            <span className="font-bold text-slate-900 text-base">
-                              {day.title}
-                            </span>
+                            <FormattedText
+                              text={day.title}
+                              badgeStyle={false}
+                              className="font-bold text-slate-900 text-base"
+                            />
                           </div>
                           <button
                             type="button"
@@ -223,7 +226,7 @@ export default function ItineraryResult({ itinerary, onReset }: ItineraryResultP
                                 {day.morning.map((act, i) => (
                                   <li key={i} className="flex items-start gap-2">
                                     <span className="text-amber-500 font-bold">•</span>
-                                    <span>{act}</span>
+                                    <FormattedText text={act} />
                                   </li>
                                 ))}
                               </ul>
@@ -239,7 +242,7 @@ export default function ItineraryResult({ itinerary, onReset }: ItineraryResultP
                                 {day.afternoon.map((act, i) => (
                                   <li key={i} className="flex items-start gap-2">
                                     <span className="text-sky-500 font-bold">•</span>
-                                    <span>{act}</span>
+                                    <FormattedText text={act} />
                                   </li>
                                 ))}
                               </ul>
@@ -255,7 +258,7 @@ export default function ItineraryResult({ itinerary, onReset }: ItineraryResultP
                                 {day.evening.map((act, i) => (
                                   <li key={i} className="flex items-start gap-2">
                                     <span className="text-indigo-500 font-bold">•</span>
-                                    <span>{act}</span>
+                                    <FormattedText text={act} />
                                   </li>
                                 ))}
                               </ul>
@@ -282,7 +285,7 @@ export default function ItineraryResult({ itinerary, onReset }: ItineraryResultP
                     {itinerary.foodRecommendations.map((food, i) => (
                       <li key={i} className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-orange-100">
                         <span className="text-orange-500 font-bold">🍴</span>
-                        <span>{food}</span>
+                        <FormattedText text={food} />
                       </li>
                     ))}
                   </ul>
@@ -300,7 +303,7 @@ export default function ItineraryResult({ itinerary, onReset }: ItineraryResultP
                     {itinerary.travelTips.map((tip, i) => (
                       <li key={i} className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-teal-100">
                         <span className="text-teal-600 font-bold">✓</span>
-                        <span>{tip}</span>
+                        <FormattedText text={tip} badgeStyle={false} />
                       </li>
                     ))}
                   </ul>
