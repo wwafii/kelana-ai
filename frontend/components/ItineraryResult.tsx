@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { ParsedItinerary } from "@/types";
 import FormattedText from "@/components/FormattedText";
 import {
@@ -22,6 +23,7 @@ import {
   ChevronUp,
   FileText,
   Bookmark,
+  FolderOpen,
 } from "lucide-react";
 
 interface ItineraryResultProps {
@@ -138,6 +140,13 @@ export default function ItineraryResult({ itinerary, onReset }: ItineraryResultP
               <FileText className="w-3.5 h-3.5 text-slate-500" />
               <span>{showRaw ? "Formatted View" : "Raw AI Text"}</span>
             </button>
+            <Link
+              href="/trips"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-medium transition-all shadow-sm"
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-sky-600" />
+              <span>Trip Dashboard</span>
+            </Link>
             <button
               onClick={onReset}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-semibold transition-all shadow-sm"

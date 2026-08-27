@@ -34,6 +34,7 @@ def init_db() -> None:
     try:
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS ai_recommendation TEXT;"))
+            conn.execute(text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS travel_style VARCHAR;"))
             conn.commit()
     except Exception:
         # Ignore errors if table does not exist or database dialect doesn't support the syntax

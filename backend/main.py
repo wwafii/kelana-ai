@@ -50,6 +50,7 @@ class TripRequest(BaseModel):
     destination: str = Field(..., description="Destinasi atau kota/negara tujuan perjalanan", examples=["Japan"])
     days: int = Field(..., gt=0, description="Durasi perjalanan dalam hari", examples=[5])
     budget: float = Field(..., ge=0, description="Total anggaran perjalanan", examples=[2000.0])
+    travel_style: Optional[str] = Field("Standard", description="Gaya perjalanan (e.g. Solo, Family, Couple, Standard)", examples=["Family"])
 
 
 class TripUpdate(BaseModel):
@@ -59,6 +60,7 @@ class TripUpdate(BaseModel):
     budget: float = Field(..., ge=0, description="Total anggaran perjalanan yang baru", examples=[2500.0])
     destination: Optional[str] = Field(None, description="Destinasi tujuan perjalanan baru (opsional)", examples=["Japan"])
     days: Optional[int] = Field(None, gt=0, description="Durasi perjalanan baru dalam hari (opsional)", examples=[5])
+    travel_style: Optional[str] = Field(None, description="Gaya perjalanan baru (opsional)", examples=["Couple"])
 
 
 class TripResponse(BaseModel):
@@ -71,6 +73,7 @@ class TripResponse(BaseModel):
     budget: float
     category: str
     daily_budget: float
+    travel_style: Optional[str] = "Standard"
     ai_recommendation: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -118,6 +121,7 @@ def create_trip(request: TripRequest):
         budget=request.budget,
         category=category,
         daily_budget=daily_budget,
+        travel_style=request.travel_style or "Standard",
     )
 
     db = SessionLocal()
@@ -183,6 +187,8 @@ def update_trip(id: int, request: TripUpdate):
             trip.destination = request.destination
         if request.days is not None:
             trip.days = request.days
+        if request.travel_style is not None:
+            trip.travel_style = request.travel_style
 
         trip.budget = request.budget
 

@@ -1,7 +1,18 @@
 "use client";
 
 import React, { useState } from "react";
-import { Compass, Sparkles, MapPin, Menu, X, BookOpen, Layers } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Compass,
+  Sparkles,
+  MapPin,
+  Menu,
+  X,
+  BookOpen,
+  Layers,
+  FolderOpen,
+} from "lucide-react";
 
 interface NavbarProps {
   onPlanClick?: () => void;
@@ -10,14 +21,17 @@ interface NavbarProps {
 
 export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const isHomePage = pathname === "/";
+  const isTripsPage = pathname === "/trips";
 
   return (
     <header className="sticky top-0 z-50 backdrop-blur-md bg-white/85 border-b border-slate-200/80 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 via-teal-500 to-emerald-400 flex items-center justify-center shadow-md shadow-sky-500/20 text-white font-bold">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 via-teal-500 to-emerald-400 flex items-center justify-center shadow-md shadow-sky-500/20 text-white font-bold group-hover:scale-105 transition-transform">
               <Compass className="w-6 h-6 animate-pulse" />
             </div>
             <div>
@@ -33,26 +47,48 @@ export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
                 Intelligent Travel Assistant
               </p>
             </div>
-          </div>
+          </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8">
-            <a
-              href="#planner"
-              onClick={(e) => {
-                if (onPlanClick) {
-                  e.preventDefault();
-                  onPlanClick();
-                }
-              }}
-              className="text-sm font-medium text-slate-700 hover:text-sky-600 transition-colors flex items-center gap-1.5"
+          <nav className="hidden md:flex items-center gap-7">
+            {isHomePage ? (
+              <a
+                href="#planner"
+                onClick={(e) => {
+                  if (onPlanClick) {
+                    e.preventDefault();
+                    onPlanClick();
+                  }
+                }}
+                className="text-sm font-medium text-slate-700 hover:text-sky-600 transition-colors flex items-center gap-1.5"
+              >
+                <Sparkles className="w-4 h-4 text-sky-500" /> Plan Itinerary
+              </a>
+            ) : (
+              <Link
+                href="/#planner"
+                className="text-sm font-medium text-slate-700 hover:text-sky-600 transition-colors flex items-center gap-1.5"
+              >
+                <Sparkles className="w-4 h-4 text-sky-500" /> Plan Itinerary
+              </Link>
+            )}
+
+            {/* Trip History Dashboard Link */}
+            <Link
+              href="/trips"
+              className={`text-sm font-semibold transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl ${
+                isTripsPage
+                  ? "bg-sky-50 text-sky-700 border border-sky-200/80 font-bold"
+                  : "text-slate-700 hover:text-sky-600 hover:bg-slate-50"
+              }`}
             >
-              <Sparkles className="w-4 h-4 text-sky-500" /> Plan Itinerary
-            </a>
-            <a
-              href="#destinations"
+              <FolderOpen className="w-4 h-4 text-sky-600" /> Trip History
+            </Link>
+
+            <Link
+              href="/#destinations"
               onClick={(e) => {
-                if (onExploreClick) {
+                if (isHomePage && onExploreClick) {
                   e.preventDefault();
                   onExploreClick();
                 }
@@ -60,13 +96,15 @@ export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
               className="text-sm font-medium text-slate-700 hover:text-sky-600 transition-colors flex items-center gap-1.5"
             >
               <MapPin className="w-4 h-4 text-teal-500" /> Popular Destinations
-            </a>
-            <a
-              href="#features"
+            </Link>
+
+            <Link
+              href="/#features"
               className="text-sm font-medium text-slate-700 hover:text-sky-600 transition-colors flex items-center gap-1.5"
             >
               <Layers className="w-4 h-4 text-emerald-500" /> How It Works
-            </a>
+            </Link>
+
             <a
               href="http://localhost:8000/docs"
               target="_blank"
@@ -78,13 +116,21 @@ export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
           </nav>
 
           {/* Action Button */}
-          <div className="hidden md:flex items-center">
-            <button
-              onClick={onPlanClick}
+          <div className="hidden md:flex items-center gap-3">
+            <Link
+              href={isHomePage ? "/trips" : "/"}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-sky-600 to-teal-600 hover:from-sky-700 hover:to-teal-700 shadow-sm shadow-sky-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              <Sparkles className="w-4 h-4" /> Start Planning
-            </button>
+              {isHomePage ? (
+                <>
+                  <FolderOpen className="w-4 h-4" /> View History
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" /> New Plan
+                </>
+              )}
+            </Link>
           </div>
 
           {/* Mobile Hamburger Button */}
@@ -103,8 +149,8 @@ export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-slate-200 bg-white/95 px-4 pt-3 pb-5 space-y-3">
-          <a
-            href="#planner"
+          <Link
+            href="/#planner"
             onClick={() => {
               setMobileMenuOpen(false);
               onPlanClick?.();
@@ -112,9 +158,16 @@ export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
             className="block px-3 py-2 rounded-lg text-base font-medium text-slate-800 hover:bg-sky-50 hover:text-sky-700"
           >
             ✦ Plan Itinerary
-          </a>
-          <a
-            href="#destinations"
+          </Link>
+          <Link
+            href="/trips"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-lg text-base font-medium text-slate-800 hover:bg-sky-50 hover:text-sky-700 font-semibold"
+          >
+            ✦ Trip History Dashboard
+          </Link>
+          <Link
+            href="/#destinations"
             onClick={() => {
               setMobileMenuOpen(false);
               onExploreClick?.();
@@ -122,14 +175,14 @@ export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
             className="block px-3 py-2 rounded-lg text-base font-medium text-slate-800 hover:bg-sky-50 hover:text-sky-700"
           >
             ✦ Popular Destinations
-          </a>
-          <a
-            href="#features"
+          </Link>
+          <Link
+            href="/#features"
             onClick={() => setMobileMenuOpen(false)}
             className="block px-3 py-2 rounded-lg text-base font-medium text-slate-800 hover:bg-sky-50 hover:text-sky-700"
           >
             ✦ How It Works
-          </a>
+          </Link>
           <a
             href="http://localhost:8000/docs"
             target="_blank"
@@ -140,18 +193,17 @@ export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
             ✦ FastAPI Swagger Docs
           </a>
           <div className="pt-2">
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onPlanClick?.();
-              }}
-              className="w-full py-2.5 px-4 text-center font-semibold rounded-xl text-white bg-gradient-to-r from-sky-600 to-teal-600 shadow-sm"
+            <Link
+              href={isHomePage ? "/trips" : "/"}
+              onClick={() => setMobileMenuOpen(false)}
+              className="block w-full py-2.5 px-4 text-center font-semibold rounded-xl text-white bg-gradient-to-r from-sky-600 to-teal-600 shadow-sm"
             >
-              Start Planning Now
-            </button>
+              {isHomePage ? "View Trip History" : "Start Planning Now"}
+            </Link>
           </div>
         </div>
       )}
     </header>
   );
 }
+

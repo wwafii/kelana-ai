@@ -9,13 +9,12 @@ export interface TripResponse {
   id: number;
   destination: string;
   days: number;
-  budget: floatNumber;
+  budget: number;
   category: "Backpacker" | "Standard" | "Luxury" | string;
   daily_budget: number;
+  travel_style?: string | null;
   ai_recommendation?: string | null;
 }
-
-type floatNumber = number;
 
 export interface TripGenerateResponse {
   trip_id: number;
@@ -37,6 +36,7 @@ export interface ParsedItinerary {
   budget: number;
   dailyBudget: number;
   category: string;
+  travelStyle?: string;
   dailyPlans: DailyPlan[];
   travelTips: string[];
   foodRecommendations: string[];
@@ -53,3 +53,14 @@ export interface DestinationCard {
   category: string;
   tag: string;
 }
+
+export type TripSortOption =
+  | "latest"
+  | "oldest"
+  | "budget-desc"
+  | "budget-asc"
+  | "duration-desc"
+  | "duration-asc";
+
+export type CategoryFilter = "ALL" | "Backpacker" | "Standard" | "Luxury";
+export type TravelStyleFilter = "ALL" | "Family" | "Solo" | "Couple";

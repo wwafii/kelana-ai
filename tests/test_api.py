@@ -40,6 +40,7 @@ class TestTripCRUDEndpoints:
             "destination": "Kyoto, Japan",
             "days": 4,
             "budget": 1600.0,
+            "travel_style": "Family",
         }
         res = client.post("/api/v1/trips", json=payload)
         assert res.status_code == 200
@@ -49,6 +50,7 @@ class TestTripCRUDEndpoints:
         assert data["budget"] == 1600.0
         assert data["daily_budget"] == 400.0
         assert data["category"] == "Standard"
+        assert data["travel_style"] == "Family"
         assert "id" in data
         trip_id = data["id"]
 
@@ -56,6 +58,7 @@ class TestTripCRUDEndpoints:
         get_res = client.get(f"/api/v1/trips/{trip_id}")
         assert get_res.status_code == 200
         assert get_res.json()["id"] == trip_id
+        assert get_res.json()["travel_style"] == "Family"
 
     def test_get_nonexistent_trip(self):
         res = client.get("/api/v1/trips/999999")
