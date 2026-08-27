@@ -9,14 +9,15 @@ dan Persistence Layer (database PostgreSQL via SQLAlchemy ORM).
 import os
 import sys
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.orm import Session
 
 # Memastikan direktori backend berada di sys.path agar impor modul services dan database berjalan lancar
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from database import SessionLocal, init_db
+from database import get_db, init_db
 from models.trip import Trip
 from services.bedrock_service import generate_travel_recommendation
 from services.trip_service import (
@@ -107,7 +108,7 @@ def health_check() -> dict:
 
 
 @app.post("/api/v1/trips", response_model=TripResponse)
-def create_trip(request: TripRequest):
+def create_trip(request: TripRequest, db: Session = Depends(get_db)):
     """
     Membuat data perjalanan baru, menghitung alokasi harian dan kategori,
     lalu menyimpannya secara persisten ke database PostgreSQL.
@@ -124,105 +125,85 @@ def create_trip(request: TripRequest):
         travel_style=request.travel_style or "Standard",
     )
 
-    db = SessionLocal()
-    try:
-        db.add(trip)
-        db.commit()
-        db.refresh(trip)
-        return trip
-    finally:
-        db.close()
+    db.add(trip)
+    db.commit()
+    db.refresh(trip)
+    return trip
 
 
 @app.get("/api/v1/trips", response_model=List[TripResponse])
-def list_trips():
+def list_trips(db: Session = Depends(get_db)):
     """
     Mengambil seluruh daftar riwayat data perjalanan yang tersimpan di PostgreSQL.
     """
-    db = SessionLocal()
-    try:
-        trips = db.query(Trip).all()
-        return trips
-    finally:
-        db.close()
+    trips = db.query(Trip).all()
+    return trips
 
 
 @app.get("/api/v1/trips/{id}", response_model=TripResponse)
-def get_trip(id: int):
+def get_trip(id: int, db: Session = Depends(get_db)):
     """
     Mengambil detail satu data perjalanan berdasarkan ID dari database PostgreSQL.
     Jika ID tidak ditemukan, mengembalikan HTTP 404.
     """
-    db = SessionLocal()
-    try:
-        trip = db.query(Trip).filter(Trip.id == id).first()
-        if trip is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Trip with id {id} not found",
-            )
-        return trip
-    finally:
-        db.close()
+    trip = db.query(Trip).filter(Trip.id == id).first()
+    if trip is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Trip with id {id} not found",
+        )
+    return trip
 
 
 @app.put("/api/v1/trips/{id}", response_model=TripResponse)
-def update_trip(id: int, request: TripUpdate):
+def update_trip(id: int, request: TripUpdate, db: Session = Depends(get_db)):
     """
     Memperbarui anggaran (budget) perjalanan tertentu berdasarkan ID.
     Sebelum menyimpan ke database, nilai category dan daily_budget
     dihitung ulang secara otomatis.
     Jika ID tidak ditemukan, mengembalikan HTTP 404.
     """
-    db = SessionLocal()
-    try:
-        trip = db.query(Trip).filter(Trip.id == id).first()
-        if trip is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Trip with id {id} not found",
-            )
+    trip = db.query(Trip).filter(Trip.id == id).first()
+    if trip is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Trip with id {id} not found",
+        )
 
-        if request.destination is not None:
-            trip.destination = request.destination
-        if request.days is not None:
-            trip.days = request.days
-        if request.travel_style is not None:
-            trip.travel_style = request.travel_style
+    if request.destination is not None:
+        trip.destination = request.destination
+    if request.days is not None:
+        trip.days = request.days
+    if request.travel_style is not None:
+        trip.travel_style = request.travel_style
 
-        trip.budget = request.budget
+    trip.budget = request.budget
 
-        # Hitung ulang logika bisnis (recalculate category & daily_budget)
-        trip.daily_budget = calculate_daily_budget(trip.budget, trip.days)
-        trip.category = get_trip_category(trip.budget)
+    # Hitung ulang logika bisnis (recalculate category & daily_budget)
+    trip.daily_budget = calculate_daily_budget(trip.budget, trip.days)
+    trip.category = get_trip_category(trip.budget)
 
-        db.commit()
-        db.refresh(trip)
-        return trip
-    finally:
-        db.close()
+    db.commit()
+    db.refresh(trip)
+    return trip
 
 
 @app.delete("/api/v1/trips/{id}")
-def delete_trip(id: int) -> dict:
+def delete_trip(id: int, db: Session = Depends(get_db)) -> dict:
     """
     Menghapus data perjalanan dari database PostgreSQL berdasarkan ID.
     Jika ID tidak ditemukan, mengembalikan HTTP 404.
     """
-    db = SessionLocal()
-    try:
-        trip = db.query(Trip).filter(Trip.id == id).first()
-        if trip is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Trip with id {id} not found",
-            )
+    trip = db.query(Trip).filter(Trip.id == id).first()
+    if trip is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Trip with id {id} not found",
+        )
 
-        db.delete(trip)
-        db.commit()
-        return {"message": f"Trip with id {id} deleted successfully"}
-    finally:
-        db.close()
+    db.delete(trip)
+    db.commit()
+    return {"message": f"Trip with id {id} deleted successfully"}
 
 
 @app.post(
@@ -232,7 +213,7 @@ def delete_trip(id: int) -> dict:
     summary="Generate AI Travel Recommendation",
     description="Menghasilkan rekomendasi rencana perjalanan berbasis AI (Amazon Bedrock) dan menyimpannya ke database PostgreSQL.",
 )
-def generate_trip_itinerary(id: int):
+def generate_trip_itinerary(id: int, db: Session = Depends(get_db)):
     """
     Menghasilkan rekomendasi rencana perjalanan harian (structured daily itinerary) yang kaya
     menggunakan Amazon Bedrock untuk data trip tertentu, lalu menyimpan hasilnya ke kolom
@@ -240,39 +221,35 @@ def generate_trip_itinerary(id: int):
 
     Jika trip ID tidak ditemukan, mengembalikan HTTP 404.
     """
-    db = SessionLocal()
-    try:
-        trip = db.query(Trip).filter(Trip.id == id).first()
-        if trip is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Trip with id {id} not found",
-            )
-
-        try:
-            ai_recommendation = generate_travel_recommendation(
-                destination=trip.destination,
-                days=trip.days,
-                budget=trip.budget,
-                category=trip.category,
-                daily_budget=trip.daily_budget,
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Bedrock AI generation failed: {str(e)}",
-            )
-
-        # Simpan hasil rekomendasi AI ke kolom ai_recommendation pada PostgreSQL
-        trip.ai_recommendation = ai_recommendation
-        db.commit()
-        db.refresh(trip)
-
-        return TripGenerateResponse(
-            trip_id=trip.id,
-            destination=trip.destination,
-            recommendation=trip.ai_recommendation,
+    trip = db.query(Trip).filter(Trip.id == id).first()
+    if trip is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Trip with id {id} not found",
         )
-    finally:
-        db.close()
+
+    try:
+        ai_recommendation = generate_travel_recommendation(
+            destination=trip.destination,
+            days=trip.days,
+            budget=trip.budget,
+            category=trip.category,
+            daily_budget=trip.daily_budget,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Bedrock AI generation failed: {str(e)}",
+        )
+
+    # Simpan hasil rekomendasi AI ke kolom ai_recommendation pada PostgreSQL
+    trip.ai_recommendation = ai_recommendation
+    db.commit()
+    db.refresh(trip)
+
+    return TripGenerateResponse(
+        trip_id=trip.id,
+        destination=trip.destination,
+        recommendation=trip.ai_recommendation,
+    )
 

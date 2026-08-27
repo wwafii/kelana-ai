@@ -40,3 +40,16 @@ def init_db() -> None:
         # Ignore errors if table does not exist or database dialect doesn't support the syntax
         pass
 
+
+def get_db():
+    """
+    FastAPI Dependency: Menghasilkan database session per request
+    dan memastikannya tertutup otomatis (resource clean-up).
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+

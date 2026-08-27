@@ -1,281 +1,200 @@
 # KelanaAI
 
-KelanaAI adalah aplikasi asisten perjalanan cerdas yang dirancang untuk membantu pengguna merencanakan perjalanan mereka.
+KelanaAI adalah aplikasi asisten perjalanan cerdas berbasis AI (*AI-Native Travel Planner*) yang menggabungkan kecerdasan **Amazon Bedrock (Generative AI)**, kecepatan dan keandalan **FastAPI (Python REST API)**, persistensi **PostgreSQL (SQLAlchemy ORM)**, serta antarmuka modern multi-halaman **Next.js 15 (React 19 & Tailwind CSS)**.
 
-## 📁 Struktur Proyek
+---
+
+## 📁 Struktur Proyek & Clean Architecture
+
+Aplikasi dibangun dengan prinsip **Clean Architecture & Separation of Concerns**:
 
 ```text
 KelanaAi/
 ├── .env.example
 ├── .gitignore
 ├── README.md
-├── requirements.txt               # Dependensi proyek (FastAPI, Uvicorn, SQLAlchemy, psycopg2-binary, python-dotenv, boto3)
+├── requirements.txt               # Dependensi backend (FastAPI, Uvicorn, SQLAlchemy, psycopg2-binary, boto3, pytest)
 ├── backend/
-│   ├── database.py                # Persistence Layer (DB Engine, SessionLocal & Schema Init)
-│   ├── main.py                    # Web Layer (FastAPI REST API CRUD & AI Generation with CORS)
+│   ├── database.py                # Persistence Layer (DB Engine, SessionLocal, get_db Dependency & Schema Migration)
+│   ├── main.py                    # Web Layer (FastAPI REST API CRUD & AI Generation with Dependency Injection)
 │   ├── models/                    # Data Layer (SQLAlchemy ORM Models)
 │   │   ├── __init__.py
-│   │   └── trip.py                # Model Tabel Trip (dengan kolom ai_recommendation)
+│   │   └── trip.py                # Model Tabel Trip (destinasi, hari, budget, kategori, gaya perjalanan, rekomendasi AI)
 │   └── services/                  # Business Logic & AI Services Layer
 │       ├── __init__.py
-│       ├── trip_service.py        # Logic: Category, Season, Daily Budget, Recommendations
-│       └── bedrock_service.py     # AI Integration: Amazon Bedrock Converse API & Rich Prompt
-└── frontend/                      # User Interface Layer (Next.js 15, React, Tailwind CSS)
-    ├── app/
-    │   ├── globals.css            # Tailwind CSS styling & themes
-    │   ├── layout.tsx             # Root layout with Geist font & metadata
-    │   └── page.tsx               # Interactive AI Travel Planner Homepage
-    ├── components/
-    │   ├── Navbar.tsx             # Responsive sticky navigation header
-    │   ├── Hero.tsx               # Destination hero image banner & quick suggestion pills
-    │   ├── TravelForm.tsx         # Responsive travel planner form with real-time budget calculation
-    │   ├── LoadingSpinner.tsx     # Animated Bedrock AI thinking loading indicator
-    │   ├── ErrorMessage.tsx       # Graceful error banner with retry controls
-    │   ├── ItineraryResult.tsx    # Rich day-by-day structured itinerary cards, dining & tips
-    │   ├── DestinationShowcase.tsx# Curated popular destination cards
-    │   ├── Features.tsx           # Architecture & workflow overview
-    │   └── Footer.tsx             # Informative footer with copyright & navigation links
-    ├── lib/
-    │   ├── api.ts                 # FastAPI REST API client
-    │   └── parser.ts              # Intelligent itinerary markdown/text parser
-    └── types/
-        └── index.ts               # TypeScript data definitions & interfaces
+│       ├── trip_service.py        # Logic: Category, Season, Daily Budget, Transport & Destination Recommendations
+│       └── bedrock_service.py     # AI Integration: Amazon Bedrock Converse API & Prompt Engineering
+├── frontend/                      # User Interface Layer (Next.js 15, React 19, Tailwind CSS)
+│   ├── app/
+│   │   ├── globals.css            # Tailwind CSS styling & custom animations
+│   │   ├── layout.tsx             # Root layout with navigation & typography
+│   │   ├── page.tsx               # / -> Home & AI Travel Planner Generator
+│   │   └── trips/
+│   │       ├── page.tsx           # /trips -> Trip History Dashboard (Search, Sort, Filter, Stats & Pagination)
+│   │       └── [id]/
+│   │           └── page.tsx       # /trips/[id] -> Dynamic Route: Detailed Itinerary View & AI Generator
+│   ├── components/                # Reusable UI Component Library
+│   │   ├── Navbar.tsx             # Responsive sticky navigation header with route tracking
+│   │   ├── Hero.tsx               # Destination hero visual banner & quick suggestion pills
+│   │   ├── TravelForm.tsx         # Responsive travel planner form with real-time budget calculation
+│   │   ├── TripCard.tsx           # Rich trip cards (Flags, Landmarks, Currency Format, Category & Style Badges)
+│   │   ├── Pagination.tsx         # Accessible, responsive pagination controls for > 10 items
+│   │   ├── ItineraryResult.tsx    # Rich structured itinerary breakdown cards (Morning/Afternoon/Evening)
+│   │   ├── FormattedText.tsx      # Markdown bold & typography parser
+│   │   ├── LoadingSpinner.tsx     # Animated Bedrock AI thinking loading indicator
+│   │   ├── ErrorMessage.tsx       # Graceful error banner with retry controls
+│   │   ├── DestinationShowcase.tsx# Curated popular destination cards
+│   │   ├── Features.tsx           # Architecture & workflow overview
+│   │   └── Footer.tsx             # Informative footer with copyright & navigation links
+│   ├── services/                  # Networking / API Client Layer
+│   │   └── tripService.ts         # Centralized API service layer (getTrips, getTrip, createTrip, generateItinerary, deleteTrip)
+│   ├── lib/
+│   │   ├── api.ts                 # Re-export API service for backward compatibility
+│   │   └── parser.ts              # Intelligent itinerary markdown/text parser
+│   └── types/
+│       └── index.ts               # TypeScript data definitions & interface models
+└── tests/                         # Automated Test Suite (Pytest)
+    ├── test_api.py                # REST API Integration & CRUD tests
+    ├── test_bedrock_service.py    # Amazon Bedrock AI service tests
+    └── test_trip_service.py       # Pure business logic unit tests
 ```
 
 ---
 
-## 🚀 Fitur
+## 🚀 Fitur & Milestone Pengembangan
 
 ### 1. Sesi 1: Trip Summary Generator (Console App)
-- Menerima data input perjalanan (destinasi, hari, anggaran, mata uang, dan bulan keberangkatan).
-- Menampilkan ringkasan informasi perjalanan terstruktur.
+- Menerima data input perjalanan (destinasi, durasi hari, anggaran, mata uang, dan bulan keberangkatan).
+- Menampilkan ringkasan informasi perjalanan terstruktur pada antarmuka konsol.
 
 ### 2. Sesi 2: Recommendation Engine & Layered Architecture
 - **Layered Architecture**: Pemisahan antarmuka pengguna (`backend/main.py`) dengan logika bisnis (`backend/services/trip_service.py`).
 - **Kategori Perjalanan (`get_trip_category`)**:
-  - `< 1000` &rarr; `Backpacker`
-  - `1000 - 3000` &rarr; `Standard`
-  - `> 3000` &rarr; `Luxury`
+  - `< 1000 USD` &rarr; `Backpacker`
+  - `1000 - 3000 USD` &rarr; `Standard`
+  - `> 3000 USD` &rarr; `Luxury`
 - **Kategori Season (`get_travel_season`)**:
-  - `December` &rarr; `Peak Season`
-  - `June` &rarr; `Holiday Season`
-  - Bulan lainnya &rarr; `Regular Season`
-- **Kalkulasi Anggaran Harian (`calculate_daily_budget`)**: Menghitung alokasi anggaran per hari (`budget / days`).
-- **Rekomendasi Tempat (`get_recommended_places`)**: Menampilkan daftar destinasi wisata rekomendasi.
+  - `December` &rarr; `Peak Season`, `June` &rarr; `Holiday Season`, Lainnya &rarr; `Regular Season`.
+- **Kalkulasi Anggaran Harian (`calculate_daily_budget`)**: Menghitung alokasi harian (`budget / days`).
 
 ### 3. Sesi 3: Teaching KelanaAI to Communicate (REST API dengan FastAPI)
-- **Web Layer (REST API)**: Mengonversi interface konsol menjadi REST API berbasis FastAPI.
-- **Prinsip Separation of Concerns**: Menggunakan kembali seluruh kode logika bisnis dari `trip_service.py` tanpa perubahan.
-- **Model Validasi Pydantic**: `TripRequest` untuk memvalidasi request body secara otomatis.
+- **Web Layer (REST API)**: Mengonversi antarmuka konsol menjadi REST API berbasis FastAPI.
+- **Model Validasi Pydantic**: Validasi otomatis payload request dan serialisasi respons.
 - **Dokumentasi Interaktif**: Swagger UI otomatis di `/docs` dan ReDoc di `/redoc`.
 
 ### 4. Sesi 4: Teaching KelanaAI to Remember (Persistence Layer & CRUD API)
 - **Persistence Layer**: Integrasi database PostgreSQL menggunakan ORM SQLAlchemy.
-- **Stateful Application**: Data perjalanan kini tersimpan secara permanen di database PostgreSQL dan bertahan meskipun server di-restart.
-- **Full CRUD Endpoints**:
-  - `POST /api/v1/trips`: Menyimpan perjalanan baru dengan auto-generated ID dan kalkulasi otomatis.
-  - `GET /api/v1/trips`: Mengambil seluruh riwayat data perjalanan.
-  - `GET /api/v1/trips/{id}`: Mengambil detail satu perjalanan berdasarkan ID (mengembalikan 404 jika tidak ditemukan).
-  - `PUT /api/v1/trips/{id}`: Memperbarui budget perjalanan dan menghitung ulang (*recalculate*) `category` serta `daily_budget` sebelum disimpan.
-  - `DELETE /api/v1/trips/{id}`: Menghapus data perjalanan dari database (mengembalikan 404 jika tidak ditemukan).
+- **Full CRUD Endpoints**: `POST`, `GET`, `PUT`, dan `DELETE` untuk mengelola data perjalanan secara persisten.
 
 ### 5. Sesi 5: Teaching KelanaAI to Think with AI (Amazon Bedrock Integration)
-- **AI-Native Transformation**: Bertransisi dari rule-based ke generative AI menggunakan Amazon Bedrock Foundation Models (Amazon Nova Lite / Claude).
-- **Richer Prompt Engineering**: Prompt terstruktur untuk menghasilkan rencana perjalanan harian (*structured daily plan*):
-  - **Morning activities**: 2-3 aktivitas pagi spesifik per hari.
-  - **Afternoon activities**: Rekomendasi situs budaya (*cultural sites*) dan pengalaman lokal.
-  - **Evening activities**: Tempat makan malam (*dinner spots*) dan hiburan malam (*nightlife*).
-- **AI Recommendation Persistence**: Hasil generasi AI disimpan langsung ke PostgreSQL pada kolom `ai_recommendation` di tabel `trips`.
-- **AI Generation Endpoint**: `POST /api/v1/trips/{id}/generate` untuk meng-orchestrate pengambilan data trip, pemanggilan model Bedrock via Converse API, dan penyimpanan hasil ke database.
+- **AI-Native Transformation**: Integrasi Amazon Bedrock Foundation Models (Amazon Nova Lite / Claude).
+- **Richer Prompt Engineering**: Rencana perjalanan harian (*structured daily plan*) yang terbagi menjadi slot *Morning*, *Afternoon*, dan *Evening*.
+- **Endpoint Generasi AI**: `POST /api/v1/trips/{id}/generate` untuk meng-generate dan menyimpan rekomendasi ke database PostgreSQL.
 
 ### 6. Sesi 6: Giving KelanaAI a Face (Next.js Frontend & Tailwind CSS)
 - **Modern Web Interface**: Antarmuka web interaktif menggunakan Next.js 15, React 19, TypeScript, dan Tailwind CSS.
-- **Better Styling & Professional Typography**: Tata letak, warna, tipografi, card elevation, dan micro-interactions modern.
-- **Destination Hero Visual**: Hero banner visual beresolusi tinggi dengan preset destinasi populer untuk kemudahan pengisian form.
-- **Responsive Layout**: Layout responsif penuh untuk mobile dan desktop (kolom form menyusun vertikal pada mobile dan sejajar horizontal pada layar lebar).
-- **Interactive Travel Planner Form**: Real-time daily budget calculation, kategori otomatis (*tier preview*), dan integrasi mulus dengan REST API FastAPI.
-- **Loading & Graceful Error States**: Animated spinner (*animate-spin*) dengan status feedback "Amazon Bedrock is thinking", serta error handling ramah pengguna dengan tombol coba lagi.
-- **Rich AI Output Sections**: Rekomendasi AI dipecah menjadi kartu visual harian (*Morning*, *Afternoon*, *Evening*), rekomendasi kuliner lokal, tips wisata cerdas, serta rincian estimasi anggaran.
-- **Footer**: Struktur halaman lengkap dengan informasi hak cipta dan tautan navigasi.
+- **Interactive Travel Planner Form**: Real-time daily budget calculation, kategori otomatis (*tier preview*), dan integrasi mulus dengan REST API.
+
+### 7. Sesi 7: Connecting KelanaAI's Brain and Face (Trip History Dashboard & Multi-Page Flow)
+- **Multi-Page App Routing**: Navigasi lengkap antara `/` (Home), `/trips` (Dashboard), dan `/trips/[id]` (Detail View).
+- **DB-First Reads Architecture**: Menjelajahi riwayat trip membaca langsung dari PostgreSQL (cepat dan tanpa biaya token Bedrock berulang).
+- **API Service Layer ([`frontend/services/tripService.ts`](frontend/services/tripService.ts))**: Sentralisasi pemanggilan networking API ke file service terpisah.
+- **Komponen Kartu Perjalanan ([`TripCard.tsx`](frontend/components/TripCard.tsx))**:
+  - 🚩 **Destination Icon / Flag & Landmark Visual**: Deteksi otomatis bendera negara (🇯🇵 Japan, 🇮🇩 Indonesia/Bali, 🇫🇷 France, 🇸🇬 Singapore, 🇰🇷 South Korea, 🇺🇸 USA, 🇮🇹 Italy, dll.) dan landmark khas.
+  - 💵 **Currency & Budget Formatting**: Format anggaran rapi `USD 2,000` dan `USD 400 / day` dengan pemisah ribuan.
+  - 🏷️ **Color-Coded Category Badge**: *Backpacker* (Emerald), *Standard* (Sky Blue), *Luxury* (Purple/Gold).
+  - 🎒 **Travel Style Badge**: *Family*, *Solo*, *Couple*.
+  - 🔗 **Direct Navigation**: Tautan *"View Details →"* menuju halaman detail dinamis.
+- **Fitur Pencarian & Pengurutan Real-Time (Search & Sort)**: Filter instan berdasarkan nama destinasi / gaya liburan serta sorting (*Latest*, *Oldest*, *Budget High/Low*, *Duration*).
+- **Paginasi Interaktif ([`Pagination.tsx`](frontend/components/Pagination.tsx))**: Paginasi otomatis saat data melebihi 10 items.
+- **Empty & Error States**: Panduan visual ramah pengguna saat data kosong atau saat server backend sedang offline.
+- **Dynamic Route Detail Page ([`app/trips/[id]/page.tsx`](frontend/app/trips/[id]/page.tsx))**: Tampilan jadwal terperinci, rekomendasi kuliner, tips praktis, serta fitur *Copy* dan *Print/Save PDF*.
 
 ---
 
-## 🛠️ Cara Menjalankan
+## 🛠️ Cara Menjalankan Aplikasi
 
-### 1. Konfigurasi Environment & Install Dependensi Backend
-Buat file `.env` dari template `.env.example`:
+Jalankan backend dan frontend secara bersamaan menggunakan dua terminal terpisah:
+
+### 🖥️ 1. Menjalankan Backend (FastAPI + PostgreSQL)
+
+1. Buat file konfigurasi `.env` dari template:
 ```bash
 cp .env.example .env
 ```
-Sesuaikan konfigurasi di dalam file `.env`:
+
+2. Sesuaikan konfigurasi di `.env`:
 ```env
-DATABASE_URL=postgresql+psycopg2://<user>:<password>@localhost:5432/kelana_ai
-AWS_BEARER_TOKEN_BEDROCK=sk-bedrock-xxxxxxxxxxxxxxxxx
+DATABASE_URL=postgresql+psycopg2://root:root@localhost:5432/kelana_ai
 AWS_REGION=ap-southeast-2
 MODEL_ID=amazon.nova-lite-v1:0
+AWS_BEARER_TOKEN_BEDROCK=sk-bedrock-xxxxxxxxxxxxxxxxxxxx
 ```
 
-Install dependensi backend:
+3. Install dependensi dan jalankan server FastAPI:
 ```bash
+# Aktifkan virtual environment
+source .venv/bin/activate
+
+# Install dependensi
 pip install -r requirements.txt
+
+# Jalankan server
+uvicorn backend.main:app --reload --port 8000
 ```
+* **REST API Endpoint**: `http://localhost:8000`
+* **Swagger API Docs**: `http://localhost:8000/docs`
 
-### 2. Install Dependensi & Jalankan Frontend (Next.js)
+---
 
-Masuk ke direktori `frontend`:
+### 🌐 2. Menjalankan Frontend (Next.js)
+
+1. Buka terminal baru, masuk ke direktori `frontend`, dan jalankan development server:
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Frontend web application akan aktif di `http://localhost:3000`.
 
-### 3. Jalankan FastAPI Server Backend dengan Uvicorn
-
-Dari root direktori:
-```bash
-uvicorn backend.main:app --reload
-```
-
-Backend REST API akan aktif di `http://localhost:8000`.
-
-### 4. Akses Swagger UI & Web App
-- Web Interface: `http://localhost:3000`
-- Swagger REST API Docs: `http://localhost:8000/docs`
-
+2. Buka antarmuka aplikasi di browser:
+* **Home / Generator**: [http://localhost:3000](http://localhost:3000)
+* **Trip History Dashboard**: [http://localhost:3000/trips](http://localhost:3000/trips)
 
 ---
 
-## 📡 Dokumentasi Endpoint & Contoh Penggunaan
+## 🧪 Menjalankan Pengujian Otomatis (Testing)
 
-### 1. Welcome Message
-- **Endpoint**: `GET /`
-- **Response (200 OK)**:
-```json
-{
-  "message": "Welcome to KelanaAI"
-}
+Jalankan suite pengujian unit dan integrasi Pytest:
+```bash
+pytest
 ```
+*Hasil: 30 test cases passed (Business Logic, Bedrock Service, REST API CRUD & Database Persistence).*
 
-### 2. Health Check
-- **Endpoint**: `GET /health`
-- **Response (200 OK)**:
-```json
-{
-  "status": "OK"
-}
-```
+---
 
-### 3. Create Trip (POST)
-- **Endpoint**: `POST /api/v1/trips`
-- **Headers**: `Content-Type: application/json`
-- **Request Body**:
-```json
-{
-  "destination": "Japan",
-  "days": 5,
-  "budget": 2000.0
-}
-```
-- **Response (200 OK)**:
-```json
-{
-  "id": 1,
-  "destination": "Japan",
-  "days": 5,
-  "budget": 2000.0,
-  "category": "Standard",
-  "daily_budget": 400.0
-}
-```
+## 📡 Dokumentasi Endpoint REST API
 
-### 4. List All Trips (GET)
-- **Endpoint**: `GET /api/v1/trips`
-- **Response (200 OK)**:
-```json
-[
-  {
-    "id": 1,
-    "destination": "Japan",
+| Method | Endpoint | Deskripsi |
+| :--- | :--- | :--- |
+| `GET` | `/` | Root welcome message |
+| `GET` | `/health` | Server health check status |
+| `POST` | `/api/v1/trips` | Membuat data perjalanan baru (Auto-calculate category & daily budget) |
+| `GET` | `/api/v1/trips` | Mengambil seluruh riwayat perjalanan dari database PostgreSQL |
+| `GET` | `/api/v1/trips/{id}` | Mengambil detail satu data perjalanan berdasarkan ID |
+| `PUT` | `/api/v1/trips/{id}` | Memperbarui bujet atau data trip (Auto-recalculate kategori & bujet harian) |
+| `DELETE` | `/api/v1/trips/{id}` | Menghapus data perjalanan berdasarkan ID |
+| `POST` | `/api/v1/trips/{id}/generate` | Menghasilkan rekomendasi AI (Amazon Bedrock) dan menyimpannya ke PostgreSQL |
+
+### Contoh Request Pembuatan Trip:
+```bash
+curl -X POST "http://localhost:8000/api/v1/trips" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "destination": "Tokyo, Japan",
     "days": 5,
     "budget": 2000.0,
-    "category": "Standard",
-    "daily_budget": 400.0
-  }
-]
+    "travel_style": "Family"
+  }'
 ```
 
-### 5. Get Trip by ID (GET)
-- **Endpoint**: `GET /api/v1/trips/{id}`
-- **Response (200 OK)**:
-```json
-{
-  "id": 1,
-  "destination": "Japan",
-  "days": 5,
-  "budget": 2000.0,
-  "category": "Standard",
-  "daily_budget": 400.0
-}
-```
-- **Response jika ID tidak ditemukan (404 Not Found)**:
-```json
-{
-  "detail": "Trip with id 999 not found"
-}
-```
-
-### 6. Update Trip Budget (PUT)
-- **Endpoint**: `PUT /api/v1/trips/{id}`
-- **Headers**: `Content-Type: application/json`
-- **Request Body**:
-```json
-{
-  "budget": 4000.0
-}
-```
-- **Response (200 OK)** (Nilai `category` dan `daily_budget` otomatis dihitung ulang):
-```json
-{
-  "id": 1,
-  "destination": "Japan",
-  "days": 5,
-  "budget": 4000.0,
-  "category": "Luxury",
-  "daily_budget": 800.0
-}
-```
-
-### 7. Delete Trip (DELETE)
-- **Endpoint**: `DELETE /api/v1/trips/{id}`
-- **Response (200 OK)**:
-```json
-{
-  "message": "Trip with id 1 deleted successfully"
-}
-```
-- **Response jika ID tidak ditemukan (404 Not Found)**:
-```json
-{
-  "detail": "Trip with id 1 not found"
-}
-```
-
-### 8. Generate AI Trip Recommendation (POST)
-- **Endpoint**: `POST /api/v1/trips/{id}/generate`
-- **Deskripsi**: Menghasilkan rencana perjalanan harian (*structured daily plan*) yang kaya menggunakan Amazon Bedrock LLM dan menyimpan hasilnya ke database PostgreSQL pada kolom `ai_recommendation`.
-- **Response (200 OK)**:
-```json
-{
-  "trip_id": 1,
-  "destination": "Japan",
-  "recommendation": "Day 1: Exploring Japan\n\nMorning:\n- Visit Senso-ji Temple early to avoid crowds.\n- Take a stroll around Nakamise Shopping Street.\n- Have breakfast at a traditional local bakery nearby.\n\nAfternoon:\n- Experience a traditional Japanese tea ceremony.\n- Explore the Tokyo National Museum to learn about local culture and history.\n\nEvening:\n- Enjoy dinner at an authentic Izakaya in Hoppy Street.\n- Experience the vibrant local nightlife and city lights around Asakusa."
-}
-```
-- **Response jika ID tidak ditemukan (404 Not Found)**:
-```json
-{
-  "detail": "Trip with id 999 not found"
-}
-```
 
