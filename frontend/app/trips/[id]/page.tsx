@@ -11,6 +11,7 @@ import { getDestinationVisual, getCategoryBadge, getTravelStyleBadge, formatBudg
 import { TripResponse, ParsedItinerary } from "@/types";
 import { getTrip, generateItinerary } from "@/services/tripService";
 import { parseAIItinerary } from "@/lib/parser";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import {
   ArrowLeft,
   Calendar,
@@ -37,7 +38,7 @@ interface PageProps {
   params: Promise<{ id: string }> | { id: string };
 }
 
-export default function TripDetailPage({ params }: PageProps) {
+function TripDetailContent() {
   const router = useRouter();
   const routeParams = useParams();
   const rawId = routeParams?.id || "";
@@ -570,5 +571,13 @@ export default function TripDetailPage({ params }: PageProps) {
 
       <Footer />
     </div>
+  );
+}
+
+export default function TripDetailPage() {
+  return (
+    <ProtectedRoute>
+      <TripDetailContent />
+    </ProtectedRoute>
   );
 }

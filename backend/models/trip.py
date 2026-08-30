@@ -9,7 +9,8 @@ import sys
 # Memastikan direktori backend berada di sys.path agar impor modul database berjalan lancar
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy import Column, Float, Integer, String, Text
+from sqlalchemy import Column, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import relationship
 from database import Base
 
 
@@ -29,3 +30,8 @@ class Trip(Base):
     travel_style = Column(String, nullable=True, default="Standard")
     ai_recommendation = Column(Text, nullable=True)
 
+    # Foreign key ke tabel users untuk hak kepemilikan data perjalanan
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
+    # Relasi many-to-one ke User
+    user = relationship("User", back_populates="trips")

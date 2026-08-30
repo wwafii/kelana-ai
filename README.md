@@ -1,6 +1,6 @@
 # KelanaAI
 
-KelanaAI adalah aplikasi asisten perjalanan cerdas berbasis AI (*AI-Native Travel Planner*) yang menggabungkan kecerdasan **Amazon Bedrock (Generative AI)**, kecepatan dan keandalan **FastAPI (Python REST API)**, persistensi **PostgreSQL (SQLAlchemy ORM)**, serta antarmuka modern multi-halaman **Next.js 15 (React 19 & Tailwind CSS)**.
+KelanaAI adalah aplikasi asisten perjalanan cerdas berbasis AI (*AI-Native Travel Planner*) yang menggabungkan kecerdasan **Amazon Bedrock (Generative AI)**, kecepatan dan keandalan **FastAPI (Python REST API)**, persistensi **PostgreSQL (SQLAlchemy ORM)**, autentikasi **JWT & BCrypt**, serta antarmuka modern multi-halaman **Next.js 15 (React 19 & Tailwind CSS)**.
 
 ---
 
@@ -13,28 +13,37 @@ KelanaAi/
 ├── .env.example
 ├── .gitignore
 ├── README.md
-├── requirements.txt               # Dependensi backend (FastAPI, Uvicorn, SQLAlchemy, psycopg2-binary, boto3, pytest)
+├── requirements.txt               # Dependensi backend (FastAPI, Uvicorn, SQLAlchemy, psycopg2-binary, boto3, pytest, bcrypt, python-jose, passlib, email-validator)
 ├── backend/
 │   ├── database.py                # Persistence Layer (DB Engine, SessionLocal, get_db Dependency & Schema Migration)
-│   ├── main.py                    # Web Layer (FastAPI REST API CRUD & AI Generation with Dependency Injection)
+│   ├── main.py                    # Web Layer (FastAPI REST API CRUD, Auth & AI Generation with Dependency Injection)
 │   ├── models/                    # Data Layer (SQLAlchemy ORM Models)
 │   │   ├── __init__.py
-│   │   └── trip.py                # Model Tabel Trip (destinasi, hari, budget, kategori, gaya perjalanan, rekomendasi AI)
-│   └── services/                  # Business Logic & AI Services Layer
+│   │   ├── user.py                # Model Tabel User (id, name, email, password_hash, relationship to trips)
+│   │   └── trip.py                # Model Tabel Trip (destinasi, hari, budget, kategori, gaya perjalanan, rekomendasi AI, user_id FK)
+│   └── services/                  # Business Logic, Auth & AI Services Layer
 │       ├── __init__.py
+│       ├── auth_service.py        # Security & Identity: Password Hashing (bcrypt), JWT generation/verification, get_current_user
 │       ├── trip_service.py        # Logic: Category, Season, Daily Budget, Transport & Destination Recommendations
 │       └── bedrock_service.py     # AI Integration: Amazon Bedrock Converse API & Prompt Engineering
 ├── frontend/                      # User Interface Layer (Next.js 15, React 19, Tailwind CSS)
 │   ├── app/
 │   │   ├── globals.css            # Tailwind CSS styling & custom animations
-│   │   ├── layout.tsx             # Root layout with navigation & typography
-│   │   ├── page.tsx               # / -> Home & AI Travel Planner Generator
+│   │   ├── layout.tsx             # Root layout with AuthProvider & typography
+│   │   ├── page.tsx               # / -> Home & AI Travel Planner Generator (Protected)
+│   │   ├── login/
+│   │   │   └── page.tsx           # /login -> Dedicated User Sign In Page
+│   │   ├── register/
+│   │   │   └── page.tsx           # /register -> Dedicated User Registration Page
+│   │   ├── profile/
+│   │   │   └── page.tsx           # /profile -> Personal User Profile & Statistics (Protected)
 │   │   └── trips/
-│   │       ├── page.tsx           # /trips -> Trip History Dashboard (Search, Sort, Filter, Stats & Pagination)
+│   │       ├── page.tsx           # /trips -> Private Trip History Dashboard (Search, Sort, Filter, Stats & Pagination) (Protected)
 │   │       └── [id]/
-│   │           └── page.tsx       # /trips/[id] -> Dynamic Route: Detailed Itinerary View & AI Generator
+│   │           └── page.tsx       # /trips/[id] -> Dynamic Route: Detailed Itinerary View & AI Generator (Protected & Ownership Checked)
 │   ├── components/                # Reusable UI Component Library
-│   │   ├── Navbar.tsx             # Responsive sticky navigation header with route tracking
+│   │   ├── ProtectedRoute.tsx     # Route Guard with automatic redirect to /login
+│   │   ├── Navbar.tsx             # Responsive sticky navigation header with user identity & personalized welcome
 │   │   ├── Hero.tsx               # Destination hero visual banner & quick suggestion pills
 │   │   ├── TravelForm.tsx         # Responsive travel planner form with real-time budget calculation
 │   │   ├── TripCard.tsx           # Rich trip cards (Flags, Landmarks, Currency Format, Category & Style Badges)
@@ -46,15 +55,18 @@ KelanaAi/
 │   │   ├── DestinationShowcase.tsx# Curated popular destination cards
 │   │   ├── Features.tsx           # Architecture & workflow overview
 │   │   └── Footer.tsx             # Informative footer with copyright & navigation links
+│   ├── context/
+│   │   └── AuthContext.tsx        # React Context & Provider for client-side Auth state management (JWT + localStorage)
 │   ├── services/                  # Networking / API Client Layer
-│   │   └── tripService.ts         # Centralized API service layer (getTrips, getTrip, createTrip, generateItinerary, deleteTrip)
+│   │   ├── authService.ts         # Authentication API client (login, register, getCurrentUser, token management)
+│   │   └── tripService.ts         # Centralized API service layer with JWT Authorization headers
 │   ├── lib/
 │   │   ├── api.ts                 # Re-export API service for backward compatibility
 │   │   └── parser.ts              # Intelligent itinerary markdown/text parser
 │   └── types/
-│       └── index.ts               # TypeScript data definitions & interface models
+│       └── index.ts               # TypeScript data definitions & interface models (User, AuthResponse, TripResponse, etc.)
 └── tests/                         # Automated Test Suite (Pytest)
-    ├── test_api.py                # REST API Integration & CRUD tests
+    ├── test_api.py                # REST API Integration, Auth & Ownership Protection Tests
     ├── test_bedrock_service.py    # Amazon Bedrock AI service tests
     └── test_trip_service.py       # Pure business logic unit tests
 ```
@@ -98,17 +110,25 @@ KelanaAi/
 ### 7. Sesi 7: Connecting KelanaAI's Brain and Face (Trip History Dashboard & Multi-Page Flow)
 - **Multi-Page App Routing**: Navigasi lengkap antara `/` (Home), `/trips` (Dashboard), dan `/trips/[id]` (Detail View).
 - **DB-First Reads Architecture**: Menjelajahi riwayat trip membaca langsung dari PostgreSQL (cepat dan tanpa biaya token Bedrock berulang).
-- **API Service Layer ([`frontend/services/tripService.ts`](frontend/services/tripService.ts))**: Sentralisasi pemanggilan networking API ke file service terpisah.
-- **Komponen Kartu Perjalanan ([`TripCard.tsx`](frontend/components/TripCard.tsx))**:
-  - 🚩 **Destination Icon / Flag & Landmark Visual**: Deteksi otomatis bendera negara (🇯🇵 Japan, 🇮🇩 Indonesia/Bali, 🇫🇷 France, 🇸🇬 Singapore, 🇰🇷 South Korea, 🇺🇸 USA, 🇮🇹 Italy, dll.) dan landmark khas.
-  - 💵 **Currency & Budget Formatting**: Format anggaran rapi `USD 2,000` dan `USD 400 / day` dengan pemisah ribuan.
-  - 🏷️ **Color-Coded Category Badge**: *Backpacker* (Emerald), *Standard* (Sky Blue), *Luxury* (Purple/Gold).
-  - 🎒 **Travel Style Badge**: *Family*, *Solo*, *Couple*.
-  - 🔗 **Direct Navigation**: Tautan *"View Details →"* menuju halaman detail dinamis.
-- **Fitur Pencarian & Pengurutan Real-Time (Search & Sort)**: Filter instan berdasarkan nama destinasi / gaya liburan serta sorting (*Latest*, *Oldest*, *Budget High/Low*, *Duration*).
-- **Paginasi Interaktif ([`Pagination.tsx`](frontend/components/Pagination.tsx))**: Paginasi otomatis saat data melebihi 10 items.
-- **Empty & Error States**: Panduan visual ramah pengguna saat data kosong atau saat server backend sedang offline.
-- **Dynamic Route Detail Page ([`app/trips/[id]/page.tsx`](frontend/app/trips/[id]/page.tsx))**: Tampilan jadwal terperinci, rekomendasi kuliner, tips praktis, serta fitur *Copy* dan *Print/Save PDF*.
+- **Paginasi & Pencarian Interaktif**: Filter kategori, gaya liburan, dan sorting dinamis.
+
+### 8. Sesi 8: Teaching KelanaAI to Know Its Users (Authentication, Authorization & Data Ownership)
+- 🔐 **Authentication & Identity System (AuthN)**:
+  - Model `User` dan tabel `users` (`name`, `email` unik, `password_hash` dengan **bcrypt**).
+  - Password hashing satu arah (*one-way salted hash*) mencegah kebocoran data.
+  - JSON Web Tokens (**JWT**) stateless authentication dengan algoritma HS256.
+  - Endpoint `POST /api/v1/auth/register` dan `POST /api/v1/auth/login`.
+  - Endpoint `GET /api/v1/auth/me` untuk profil pengguna saat ini.
+- 🛡️ **Authorization & Ownership Protection (AuthZ)**:
+  - Relasi kepemilikan data: foreign key `user_id` pada tabel `trips`.
+  - Backend menetapkan kepemilikan (`user_id = user.id`) langsung dari payload JWT terverifikasi (frontend tidak pernah mengirimkan `user_id`).
+  - **View: Only own trips**: `GET /api/v1/trips` memfilter data eksklusif `Trip.user_id == user.id`.
+  - **Reject other users' trips**: `GET /api/v1/trips/{id}`, `PUT /api/v1/trips/{id}`, `DELETE /api/v1/trips/{id}`, dan `POST /api/v1/trips/{id}/generate` menolak akses pengguna lain dengan status **HTTP 403 (Forbidden)**.
+- 💻 **Frontend Authentication & Protected Routes**:
+  - Halaman **Login** (`/login`) dan **Register** (`/register`) yang modern dan responsif.
+  - Halaman **Profile** (`/profile`) menampilkan nama, email, dan total trip yang dibuat pengguna.
+  - **Route Protection (`ProtectedRoute.tsx`)**: Mengunci halaman `/`, `/trips`, `/trips/[id]`, dan `/profile`, mengarahkan pengguna belum login secara otomatis ke `/login`.
+  - **Personalized Experience**: Salam personal (*"Welcome back, {Name} 👋"*) dan kontrol avatar / logout pada navbar.
 
 ---
 
@@ -116,7 +136,7 @@ KelanaAi/
 
 Jalankan backend dan frontend secara bersamaan menggunakan dua terminal terpisah:
 
-### 🖥️ 1. Menjalankan Backend (FastAPI + PostgreSQL)
+### 🖥️ 1. Menjalankan Backend (FastAPI + PostgreSQL + Auth)
 
 1. Buat file konfigurasi `.env` dari template:
 ```bash
@@ -129,6 +149,9 @@ DATABASE_URL=postgresql+psycopg2://root:root@localhost:5432/kelana_ai
 AWS_REGION=ap-southeast-2
 MODEL_ID=amazon.nova-lite-v1:0
 AWS_BEARER_TOKEN_BEDROCK=sk-bedrock-xxxxxxxxxxxxxxxxxxxx
+JWT_SECRET_KEY=your-secret-key-change-this-in-production
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
 ```
 
 3. Install dependensi dan jalankan server FastAPI:
@@ -157,8 +180,11 @@ npm run dev
 ```
 
 2. Buka antarmuka aplikasi di browser:
+* **Login**: [http://localhost:3000/login](http://localhost:3000/login)
+* **Register**: [http://localhost:3000/register](http://localhost:3000/register)
 * **Home / Generator**: [http://localhost:3000](http://localhost:3000)
 * **Trip History Dashboard**: [http://localhost:3000/trips](http://localhost:3000/trips)
+* **User Profile**: [http://localhost:3000/profile](http://localhost:3000/profile)
 
 ---
 
@@ -166,35 +192,24 @@ npm run dev
 
 Jalankan suite pengujian unit dan integrasi Pytest:
 ```bash
-pytest
+pytest -v
 ```
-*Hasil: 30 test cases passed (Business Logic, Bedrock Service, REST API CRUD & Database Persistence).*
+*Hasil: 34 test cases passed (Authentication, Authorization, Ownership Protection 403/401, Business Logic, Bedrock Service, REST API CRUD & Database Persistence).*
 
 ---
 
 ## 📡 Dokumentasi Endpoint REST API
 
-| Method | Endpoint | Deskripsi |
-| :--- | :--- | :--- |
-| `GET` | `/` | Root welcome message |
-| `GET` | `/health` | Server health check status |
-| `POST` | `/api/v1/trips` | Membuat data perjalanan baru (Auto-calculate category & daily budget) |
-| `GET` | `/api/v1/trips` | Mengambil seluruh riwayat perjalanan dari database PostgreSQL |
-| `GET` | `/api/v1/trips/{id}` | Mengambil detail satu data perjalanan berdasarkan ID |
-| `PUT` | `/api/v1/trips/{id}` | Memperbarui bujet atau data trip (Auto-recalculate kategori & bujet harian) |
-| `DELETE` | `/api/v1/trips/{id}` | Menghapus data perjalanan berdasarkan ID |
-| `POST` | `/api/v1/trips/{id}/generate` | Menghasilkan rekomendasi AI (Amazon Bedrock) dan menyimpannya ke PostgreSQL |
-
-### Contoh Request Pembuatan Trip:
-```bash
-curl -X POST "http://localhost:8000/api/v1/trips" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "destination": "Tokyo, Japan",
-    "days": 5,
-    "budget": 2000.0,
-    "travel_style": "Family"
-  }'
-```
-
-
+| Method | Endpoint | Auth Required | Deskripsi |
+| :--- | :--- | :---: | :--- |
+| `GET` | `/` | No | Root welcome message |
+| `GET` | `/health` | No | Server health check status |
+| `POST` | `/api/v1/auth/register` | No | Mendaftarkan akun baru (Bcrypt hashed) & menghasilkan JWT |
+| `POST` | `/api/v1/auth/login` | No | Verifikasi kredensial pengguna & menghasilkan JWT |
+| `GET` | `/api/v1/auth/me` | **Bearer JWT** | Mengambil profil dan statistik pengguna saat ini |
+| `POST` | `/api/v1/trips` | **Bearer JWT** | Membuat trip baru (Ownership otomatis diasosiasikan ke `user.id`) |
+| `GET` | `/api/v1/trips` | **Bearer JWT** | Mengambil daftar perjalanan **HANYA milik pengguna yang login** |
+| `GET` | `/api/v1/trips/{id}` | **Bearer JWT** | Mengambil detail trip (Mengembalikan 403 Forbidden jika bukan pemilik) |
+| `PUT` | `/api/v1/trips/{id}` | **Bearer JWT** | Memperbarui trip (Mengembalikan 403 Forbidden jika bukan pemilik) |
+| `DELETE` | `/api/v1/trips/{id}` | **Bearer JWT** | Menghapus trip (Mengembalikan 403 Forbidden jika bukan pemilik) |
+| `POST` | `/api/v1/trips/{id}/generate` | **Bearer JWT** | Menghasilkan rekomendasi AI Bedrock (Mengembalikan 403 jika bukan pemilik) |

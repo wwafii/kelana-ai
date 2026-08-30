@@ -10,11 +10,12 @@ import ItineraryResult from "@/components/ItineraryResult";
 import DestinationShowcase from "@/components/DestinationShowcase";
 import Features from "@/components/Features";
 import Footer from "@/components/Footer";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import { TripFormData, ParsedItinerary } from "@/types";
 import { createTrip, generateItinerary } from "@/lib/api";
 import { parseAIItinerary } from "@/lib/parser";
 
-export default function Home() {
+function HomeContent() {
   const [formData, setFormData] = useState<TripFormData>({
     destination: "Tokyo, Japan",
     days: 5,
@@ -73,13 +74,13 @@ export default function Home() {
     }, 150);
 
     try {
-      // 1. Create Trip in FastAPI backend (Slide 11 / API endpoint POST /api/v1/trips)
+      // 1. Create Trip in FastAPI backend (POST /api/v1/trips - ownership assigned from JWT)
       const createdTrip = await createTrip(data);
 
       // 2. Generate AI Itinerary from Amazon Bedrock (POST /api/v1/trips/{id}/generate)
       const genResult = await generateItinerary(createdTrip.id);
 
-      // 3. Parse recommendation into rich UI sections (Slide 16 Core Challenge)
+      // 3. Parse recommendation into rich UI sections
       const parsed = parseAIItinerary(
         genResult.recommendation,
         createdTrip.destination,
@@ -158,5 +159,13 @@ export default function Home() {
       {/* Complete Footer */}
       <Footer />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <ProtectedRoute>
+      <HomeContent />
+    </ProtectedRoute>
   );
 }

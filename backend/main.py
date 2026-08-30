@@ -1,8 +1,9 @@
 """
-KelanaAI - Web Layer (FastAPI REST API)
+KelanaAI - Web Layer (FastAPI REST API with Authentication & Ownership Protection)
 Menyediakan REST API endpoints untuk asisten perjalanan KelanaAI
 dengan mengintegrasikan Business Logic Layer (services.trip_service),
 AI Service Layer (services.bedrock_service dengan Amazon Bedrock),
+Authentication & Authorization Layer (services.auth_service),
 dan Persistence Layer (database PostgreSQL via SQLAlchemy ORM).
 """
 
@@ -11,7 +12,7 @@ import sys
 from typing import List, Optional
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy.orm import Session
 
 # Memastikan direktori backend berada di sys.path agar impor modul services dan database berjalan lancar
@@ -19,6 +20,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from database import get_db, init_db
 from models.trip import Trip
+from models.user import User
+from services.auth_service import (
+    authenticate_user,
+    create_access_token,
+    get_current_user,
+    register_user,
+)
 from services.bedrock_service import generate_travel_recommendation
 from services.trip_service import (
     calculate_daily_budget,
@@ -27,8 +35,8 @@ from services.trip_service import (
 
 app = FastAPI(
     title="KelanaAI",
-    description="RESTful Web API with PostgreSQL Persistence & Amazon Bedrock Generative AI for Travel Planning",
-    version="0.5.0",
+    description="RESTful Web API with JWT Authentication, PostgreSQL Persistence & Amazon Bedrock Generative AI",
+    version="0.6.0",
 )
 
 # Konfigurasi CORS agar frontend Next.js (http://localhost:3000) dapat mengakses REST API
@@ -44,11 +52,50 @@ app.add_middleware(
 init_db()
 
 
+# ==========================================
+# Pydantic Schemas - Authentication & Users
+# ==========================================
+
+class UserRegisterRequest(BaseModel):
+    """Schema model untuk registrasi user baru."""
+    name: str = Field(..., min_length=2, max_length=100, description="Nama lengkap pengguna", examples=["Alice"])
+    email: EmailStr = Field(..., description="Alamat email unik pengguna", examples=["alice@email.com"])
+    password: str = Field(..., min_length=6, description="Kata sandi akun pengguna (minimal 6 karakter)", examples=["password123"])
+
+
+class UserLoginRequest(BaseModel):
+    """Schema model untuk login user."""
+    email: EmailStr = Field(..., description="Alamat email akun", examples=["alice@email.com"])
+    password: str = Field(..., description="Kata sandi akun", examples=["password123"])
+
+
+class UserResponse(BaseModel):
+    """Schema model representasi data profil pengguna."""
+    id: int
+    name: str
+    email: str
+    total_trips: Optional[int] = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TokenResponse(BaseModel):
+    """Schema model respons JWT Access Token setelah login / registrasi berhasil."""
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
+# ==========================================
+# Pydantic Schemas - Trips
+# ==========================================
+
 class TripRequest(BaseModel):
     """
     Schema model validasi request body untuk pembuatan data perjalanan baru.
+    Catatan keamanan: Frontend TIDAK mengirimkan user_id; backend mengisinya dari JWT.
     """
-    destination: str = Field(..., description="Destinasi atau kota/negara tujuan perjalanan", examples=["Japan"])
+    destination: str = Field(..., min_length=1, description="Destinasi atau kota/negara tujuan perjalanan", examples=["Japan"])
     days: int = Field(..., gt=0, description="Durasi perjalanan dalam hari", examples=[5])
     budget: float = Field(..., ge=0, description="Total anggaran perjalanan", examples=[2000.0])
     travel_style: Optional[str] = Field("Standard", description="Gaya perjalanan (e.g. Solo, Family, Couple, Standard)", examples=["Family"])
@@ -56,7 +103,7 @@ class TripRequest(BaseModel):
 
 class TripUpdate(BaseModel):
     """
-    Schema model validasi request body untuk pembaruan anggaran (budget) perjalanan.
+    Schema model validasi request body untuk pembaruan data perjalanan.
     """
     budget: float = Field(..., ge=0, description="Total anggaran perjalanan yang baru", examples=[2500.0])
     destination: Optional[str] = Field(None, description="Destinasi tujuan perjalanan baru (opsional)", examples=["Japan"])
@@ -66,9 +113,10 @@ class TripUpdate(BaseModel):
 
 class TripResponse(BaseModel):
     """
-    Schema model respons data perjalanan tersimpan.
+    Schema model respons data perjalanan tersimpan milik pengguna.
     """
     id: int
+    user_id: int
     destination: str
     days: int
     budget: float
@@ -89,29 +137,113 @@ class TripGenerateResponse(BaseModel):
     recommendation: str = Field(..., description="Rencana dan rekomendasi perjalanan harian yang dihasilkan oleh AI")
 
 
-
+# ==========================================
+# Basic & Health Endpoints
+# ==========================================
 
 @app.get("/")
 def home() -> dict:
-    """
-    Root endpoint sambutan KelanaAI.
-    """
+    """Root endpoint sambutan KelanaAI."""
     return {"message": "Welcome to KelanaAI"}
 
 
 @app.get("/health")
 def health_check() -> dict:
-    """
-    Endpoint health check untuk memantau status aplikasi/server.
-    """
+    """Endpoint health check untuk memantau status aplikasi/server."""
     return {"status": "OK"}
 
 
-@app.post("/api/v1/trips", response_model=TripResponse)
-def create_trip(request: TripRequest, db: Session = Depends(get_db)):
+# ==========================================
+# Authentication Endpoints
+# ==========================================
+
+@app.post(
+    "/api/v1/auth/register",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register New User",
+    description="Mendaftarkan akun pengguna baru dengan password yang di-hash menggunakan bcrypt.",
+)
+def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
+    """Mendaftarkan akun baru dan langsung menghasilkan JWT access token."""
+    user = register_user(db, name=request.name, email=request.email, password=request.password)
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
+    
+    user_data = UserResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        total_trips=0,
+    )
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user=user_data,
+    )
+
+
+@app.post(
+    "/api/v1/auth/login",
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+    summary="User Login",
+    description="Memverifikasi kredensial pengguna dan mengembalikan JWT access token.",
+)
+def login(request: UserLoginRequest, db: Session = Depends(get_db)):
+    """Login pengguna dan mengembalikan JWT access token."""
+    user = authenticate_user(db, email=request.email, password=request.password)
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
+    total_trips = db.query(Trip).filter(Trip.user_id == user.id).count()
+
+    user_data = UserResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        total_trips=total_trips,
+    )
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user=user_data,
+    )
+
+
+@app.get(
+    "/api/v1/auth/me",
+    response_model=UserResponse,
+    summary="Get Current Authenticated User",
+    description="Mengambil profil dan total trip pengguna yang saat ini terautentikasi melalui JWT token.",
+)
+def get_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Mengembalikan data profil pengguna saat ini."""
+    total_trips = db.query(Trip).filter(Trip.user_id == user.id).count()
+    return UserResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        total_trips=total_trips,
+    )
+
+
+# ==========================================
+# Protected Trip Endpoints (CRUD with Ownership)
+# ==========================================
+
+@app.post(
+    "/api/v1/trips",
+    response_model=TripResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Trip Itinerary (Protected)",
+    description="Membuat rencana perjalanan baru yang secara otomatis dikaitkan dengan user_id pengguna yang login.",
+)
+def create_trip(
+    request: TripRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
-    Membuat data perjalanan baru, menghitung alokasi harian dan kategori,
-    lalu menyimpannya secara persisten ke database PostgreSQL.
+    Membuat data perjalanan baru.
+    Backend secara otomatis menetapkan ownership (user_id = user.id) dari JWT.
     """
     daily_budget = calculate_daily_budget(request.budget, request.days)
     category = get_trip_category(request.budget)
@@ -123,6 +255,7 @@ def create_trip(request: TripRequest, db: Session = Depends(get_db)):
         category=category,
         daily_budget=daily_budget,
         travel_style=request.travel_style or "Standard",
+        user_id=user.id,  # Ownership: backend assigns from authenticated JWT
     )
 
     db.add(trip)
@@ -131,20 +264,39 @@ def create_trip(request: TripRequest, db: Session = Depends(get_db)):
     return trip
 
 
-@app.get("/api/v1/trips", response_model=List[TripResponse])
-def list_trips(db: Session = Depends(get_db)):
+@app.get(
+    "/api/v1/trips",
+    response_model=List[TripResponse],
+    summary="List User's Trips (View: Only Own Trips)",
+    description="Mengambil daftar riwayat perjalanan HANYA milik pengguna yang sedang login.",
+)
+def list_trips(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
-    Mengambil seluruh daftar riwayat data perjalanan yang tersimpan di PostgreSQL.
+    Mengambil data riwayat perjalanan milik pengguna yang sedang terautentikasi.
+    Alice hanya melihat perjalanan milik Alice, Bob hanya melihat perjalanan milik Bob.
     """
-    trips = db.query(Trip).all()
+    trips = db.query(Trip).filter(Trip.user_id == user.id).order_by(Trip.id.desc()).all()
     return trips
 
 
-@app.get("/api/v1/trips/{id}", response_model=TripResponse)
-def get_trip(id: int, db: Session = Depends(get_db)):
+@app.get(
+    "/api/v1/trips/{id}",
+    response_model=TripResponse,
+    summary="Get Trip Details (Protected & Ownership Checked)",
+    description="Mengambil detail satu data perjalanan berdasarkan ID. Menolak akses (403) jika bukan milik user yang login.",
+)
+def get_trip(
+    id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
-    Mengambil detail satu data perjalanan berdasarkan ID dari database PostgreSQL.
-    Jika ID tidak ditemukan, mengembalikan HTTP 404.
+    Mengambil detail data perjalanan berdasarkan ID.
+    Jika ID tidak ditemukan: 404 Not Found.
+    Jika bukan milik user login: 403 Forbidden.
     """
     trip = db.query(Trip).filter(Trip.id == id).first()
     if trip is None:
@@ -152,22 +304,46 @@ def get_trip(id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Trip with id {id} not found",
         )
+
+    # Ownership check
+    if trip.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You do not have permission to view this trip",
+        )
+
     return trip
 
 
-@app.put("/api/v1/trips/{id}", response_model=TripResponse)
-def update_trip(id: int, request: TripUpdate, db: Session = Depends(get_db)):
+@app.put(
+    "/api/v1/trips/{id}",
+    response_model=TripResponse,
+    summary="Update Trip (Reject Other Users' Trips)",
+    description="Memperbarui data perjalanan. Mengembalikan 403 Forbidden jika mencoba mengubah trip milik pengguna lain.",
+)
+def update_trip(
+    id: int,
+    request: TripUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
-    Memperbarui anggaran (budget) perjalanan tertentu berdasarkan ID.
-    Sebelum menyimpan ke database, nilai category dan daily_budget
-    dihitung ulang secara otomatis.
-    Jika ID tidak ditemukan, mengembalikan HTTP 404.
+    Memperbarui data perjalanan tertentu.
+    Jika ID tidak ditemukan: 404 Not Found.
+    Jika bukan milik user login: 403 Forbidden.
     """
     trip = db.query(Trip).filter(Trip.id == id).first()
     if trip is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Trip with id {id} not found",
+        )
+
+    # Ownership check: reject other users' update attempts
+    if trip.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You do not have permission to update this trip",
         )
 
     if request.destination is not None:
@@ -179,7 +355,7 @@ def update_trip(id: int, request: TripUpdate, db: Session = Depends(get_db)):
 
     trip.budget = request.budget
 
-    # Hitung ulang logika bisnis (recalculate category & daily_budget)
+    # Recalculate business logic
     trip.daily_budget = calculate_daily_budget(trip.budget, trip.days)
     trip.category = get_trip_category(trip.budget)
 
@@ -188,17 +364,33 @@ def update_trip(id: int, request: TripUpdate, db: Session = Depends(get_db)):
     return trip
 
 
-@app.delete("/api/v1/trips/{id}")
-def delete_trip(id: int, db: Session = Depends(get_db)) -> dict:
+@app.delete(
+    "/api/v1/trips/{id}",
+    summary="Delete Trip (Reject Other Users' Trips)",
+    description="Menghapus data perjalanan. Mengembalikan 403 Forbidden jika mencoba menghapus trip milik pengguna lain.",
+)
+def delete_trip(
+    id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
     """
-    Menghapus data perjalanan dari database PostgreSQL berdasarkan ID.
-    Jika ID tidak ditemukan, mengembalikan HTTP 404.
+    Menghapus data perjalanan berdasarkan ID.
+    Jika ID tidak ditemukan: 404 Not Found.
+    Jika bukan milik user login: 403 Forbidden.
     """
     trip = db.query(Trip).filter(Trip.id == id).first()
     if trip is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Trip with id {id} not found",
+        )
+
+    # Ownership check: reject other users' delete attempts
+    if trip.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You do not have permission to delete this trip",
         )
 
     db.delete(trip)
@@ -210,22 +402,30 @@ def delete_trip(id: int, db: Session = Depends(get_db)) -> dict:
     "/api/v1/trips/{id}/generate",
     response_model=TripGenerateResponse,
     status_code=status.HTTP_200_OK,
-    summary="Generate AI Travel Recommendation",
-    description="Menghasilkan rekomendasi rencana perjalanan berbasis AI (Amazon Bedrock) dan menyimpannya ke database PostgreSQL.",
+    summary="Generate AI Travel Recommendation (Protected)",
+    description="Menghasilkan rekomendasi rencana perjalanan AI dan menyimpannya ke database PostgreSQL untuk trip milik pengguna.",
 )
-def generate_trip_itinerary(id: int, db: Session = Depends(get_db)):
+def generate_trip_itinerary(
+    id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
-    Menghasilkan rekomendasi rencana perjalanan harian (structured daily itinerary) yang kaya
-    menggunakan Amazon Bedrock untuk data trip tertentu, lalu menyimpan hasilnya ke kolom
-    ai_recommendation di database PostgreSQL.
-
-    Jika trip ID tidak ditemukan, mengembalikan HTTP 404.
+    Menghasilkan rekomendasi rencana perjalanan menggunakan Amazon Bedrock untuk trip milik user.
+    Jika trip bukan milik user: 403 Forbidden.
     """
     trip = db.query(Trip).filter(Trip.id == id).first()
     if trip is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Trip with id {id} not found",
+        )
+
+    # Ownership check
+    if trip.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You do not have permission to generate recommendations for this trip",
         )
 
     try:
@@ -242,7 +442,7 @@ def generate_trip_itinerary(id: int, db: Session = Depends(get_db)):
             detail=f"Bedrock AI generation failed: {str(e)}",
         )
 
-    # Simpan hasil rekomendasi AI ke kolom ai_recommendation pada PostgreSQL
+    # Simpan hasil rekomendasi AI ke kolom ai_recommendation pada database
     trip.ai_recommendation = ai_recommendation
     db.commit()
     db.refresh(trip)
@@ -252,4 +452,3 @@ def generate_trip_itinerary(id: int, db: Session = Depends(get_db)):
         destination=trip.destination,
         recommendation=trip.ai_recommendation,
     )
-

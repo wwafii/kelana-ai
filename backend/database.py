@@ -30,11 +30,16 @@ Base = declarative_base()
 # create all tables
 def init_db() -> None:
     """Create all SQLAlchemy tables for the configured database."""
+    # Ensure models are imported so Base metadata registers them
+    import models.trip  # noqa: F401
+    import models.user  # noqa: F401
+
     Base.metadata.create_all(bind=engine)
     try:
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS ai_recommendation TEXT;"))
             conn.execute(text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS travel_style VARCHAR;"))
+            conn.execute(text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS user_id INTEGER;"))
             conn.commit()
     except Exception:
         # Ignore errors if table does not exist or database dialect doesn't support the syntax
@@ -51,5 +56,3 @@ def get_db():
         yield db
     finally:
         db.close()
-
-

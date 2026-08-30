@@ -1,3 +1,27 @@
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  total_trips?: number;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterCredentials {
+  name: string;
+  email: string;
+  password: string;
+}
+
 export interface TripFormData {
   destination: string;
   days: number;
@@ -7,6 +31,7 @@ export interface TripFormData {
 
 export interface TripResponse {
   id: number;
+  user_id?: number;
   destination: string;
   days: number;
   budget: number;
