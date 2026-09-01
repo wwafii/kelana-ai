@@ -28,6 +28,12 @@ from services.auth_service import (
     register_user,
 )
 from services.bedrock_service import generate_travel_recommendation
+from services.kb_service import (
+    ask_base_model,
+    ask_knowledge_base,
+    compare_rag_vs_base,
+    get_available_documents,
+)
 from services.trip_service import (
     calculate_daily_budget,
     get_trip_category,
@@ -35,8 +41,8 @@ from services.trip_service import (
 
 app = FastAPI(
     title="KelanaAI",
-    description="RESTful Web API with JWT Authentication, PostgreSQL Persistence & Amazon Bedrock Generative AI",
-    version="0.6.0",
+    description="RESTful Web API with JWT Authentication, PostgreSQL Persistence, Amazon Bedrock Knowledge Bases & RAG",
+    version="0.7.0",
 )
 
 # Konfigurasi CORS agar frontend Next.js (http://localhost:3000) dapat mengakses REST API
@@ -135,6 +141,67 @@ class TripGenerateResponse(BaseModel):
     trip_id: int = Field(..., description="ID perjalanan yang di-generate", examples=[1])
     destination: str = Field(..., description="Destinasi tujuan perjalanan", examples=["Japan"])
     recommendation: str = Field(..., description="Rencana dan rekomendasi perjalanan harian yang dihasilkan oleh AI")
+
+
+# ==========================================
+# Pydantic Schemas - Assistant & Knowledge Base (RAG)
+# ==========================================
+
+class AssistantQuestionRequest(BaseModel):
+    """
+    Schema model request untuk bertanya ke KelanaAI Assistant / Knowledge Base.
+    """
+    question: str = Field(
+        ...,
+        min_length=2,
+        description="Pertanyaan terkait panduan, regulasi, visa, atau informasi perjalanan",
+        examples=["Do I need a visa to visit Japan?"],
+    )
+    mode: Optional[str] = Field(
+        "rag",
+        description="Mode inferensi: 'rag' (grounded dengan Knowledge Base) atau 'base' (pure LLM)",
+        examples=["rag"],
+    )
+
+
+class AssistantQuestionResponse(BaseModel):
+    """
+    Schema model respons jawaban dari Knowledge Base / Assistant.
+    """
+    question: str
+    answer: str
+    sources: List[str] = []
+    mode: str = "rag"
+    model: str = "amazon.nova-lite-v1:0"
+
+
+class AssistantCompareResponse(BaseModel):
+    """
+    Schema model respons perbandingan Side-by-Side: Base Model vs Grounded RAG.
+    """
+    question: str
+    base_model: dict
+    rag: dict
+    comparison_summary: str
+
+
+class AssistantDocumentInfo(BaseModel):
+    """
+    Schema model informasi dokumen dalam Knowledge Base.
+    """
+    filename: str
+    title: str
+    size_bytes: int
+    topics: List[str] = []
+    path: str
+
+
+class AssistantDocumentListResponse(BaseModel):
+    """
+    Schema model daftar seluruh dokumen yang tersinkronisasi dalam Knowledge Base.
+    """
+    total_documents: int
+    documents: List[AssistantDocumentInfo]
 
 
 # ==========================================
@@ -452,3 +519,89 @@ def generate_trip_itinerary(
         destination=trip.destination,
         recommendation=trip.ai_recommendation,
     )
+
+
+# ==========================================
+# Knowledge Base & RAG Assistant Endpoints (Session 9)
+# ==========================================
+
+@app.post(
+    "/api/v1/assistant",
+    response_model=AssistantQuestionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Ask KelanaAI Travel Assistant (RAG Grounded)",
+    description="Mengajukan pertanyaan informasi/regulasi perjalanan. Backend mencari jawaban terverifikasi dari Basis Pengetahuan (Knowledge Base) dan menyertakan sitasi dokumen sumber.",
+)
+@app.post(
+    "/api/v1/ask",
+    response_model=AssistantQuestionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Ask KelanaAI Travel Assistant (RAG Alias)",
+    description="Endpoint alternatif /api/v1/ask sesuai panduan materi Sesi 09.",
+)
+def ask_assistant(request: AssistantQuestionRequest) -> AssistantQuestionResponse:
+    """
+    Endpoint RAG Assistant:
+    1. Jika mode == 'rag': Query ke Knowledge Base (retrieval + grounding + citation).
+    2. Jika mode == 'base': Query ke Base Foundation Model tanpa Knowledge Base.
+    """
+    if request.mode == "base":
+        result = ask_base_model(request.question)
+    else:
+        result = ask_knowledge_base(request.question)
+
+    return AssistantQuestionResponse(
+        question=result.get("question", request.question),
+        answer=result.get("answer", ""),
+        sources=result.get("sources", []),
+        mode=result.get("mode", request.mode or "rag"),
+        model=result.get("model", "amazon.nova-lite-v1:0"),
+    )
+
+
+@app.post(
+    "/api/v1/assistant/compare",
+    response_model=AssistantCompareResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Compare RAG vs Base Model Answers",
+    description="Membandingkan respons murni base model (tanpa dokumen) vs grounded RAG (dengan Basis Pengetahuan).",
+)
+def compare_assistant_modes(request: AssistantQuestionRequest) -> AssistantCompareResponse:
+    """
+    Membandingkan respons Base Model vs RAG untuk pertanyaan yang sama.
+    """
+    comparison = compare_rag_vs_base(request.question)
+    return AssistantCompareResponse(
+        question=comparison["question"],
+        base_model=comparison["base_model"],
+        rag=comparison["rag"],
+        comparison_summary=comparison["comparison_summary"],
+    )
+
+
+@app.get(
+    "/api/v1/assistant/documents",
+    response_model=AssistantDocumentListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="List Knowledge Base Documents",
+    description="Mendapatkan daftar seluruh dokumen panduan perjalanan yang tersedia di Knowledge Base.",
+)
+def list_knowledge_documents() -> AssistantDocumentListResponse:
+    """
+    Mengembalikan daftar dokumen travel yang tersimpan di Knowledge Base.
+    """
+    docs = get_available_documents()
+    return AssistantDocumentListResponse(
+        total_documents=len(docs),
+        documents=[
+            AssistantDocumentInfo(
+                filename=d["filename"],
+                title=d["title"],
+                size_bytes=d["size_bytes"],
+                topics=d.get("topics", []),
+                path=d["path"],
+            )
+            for d in docs
+        ],
+    )
+

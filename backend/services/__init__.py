@@ -20,6 +20,14 @@ from .auth_service import (
     register_user,
     verify_password,
 )
+from .kb_service import (
+    ask_base_model,
+    ask_knowledge_base,
+    compare_rag_vs_base,
+    get_available_documents,
+    get_kb_client,
+    retrieve_local_passages,
+)
 
 __all__ = [
     "calculate_daily_budget",
@@ -36,4 +44,10 @@ __all__ = [
     "hash_password",
     "register_user",
     "verify_password",
+    "ask_base_model",
+    "ask_knowledge_base",
+    "compare_rag_vs_base",
+    "get_available_documents",
+    "get_kb_client",
+    "retrieve_local_passages",
 ]

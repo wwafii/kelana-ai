@@ -89,3 +89,45 @@ export type TripSortOption =
 
 export type CategoryFilter = "ALL" | "Backpacker" | "Standard" | "Luxury";
 export type TravelStyleFilter = "ALL" | "Family" | "Solo" | "Couple";
+
+export interface AssistantQuestionRequest {
+  question: string;
+  mode?: "rag" | "base";
+}
+
+export interface AssistantQuestionResponse {
+  question: string;
+  answer: string;
+  sources: string[];
+  mode: string;
+  model: string;
+}
+
+export interface AssistantCompareResponse {
+  question: string;
+  base_model: {
+    answer: string;
+    sources: string[];
+    model: string;
+  };
+  rag: {
+    answer: string;
+    sources: string[];
+    model: string;
+  };
+  comparison_summary: string;
+}
+
+export interface KnowledgeDocumentInfo {
+  filename: string;
+  title: string;
+  size_bytes: number;
+  topics: string[];
+  path: string;
+}
+
+export interface KnowledgeDocumentListResponse {
+  total_documents: number;
+  documents: KnowledgeDocumentInfo[];
+}
+

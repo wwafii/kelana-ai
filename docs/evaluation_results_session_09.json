@@ -1,0 +1,114 @@
+[
+  {
+    "id": 1,
+    "topic": "Singapore Entry & SG Arrival Card (SGAC)",
+    "question": "What is the mandatory entry requirement and timeframe for digital health declaration when traveling to Singapore?",
+    "expected_doc": "knowledge-docs/singapore-travel-guide.md",
+    "base_model": {
+      "question": "What is the mandatory entry requirement and timeframe for digital health declaration when traveling to Singapore?",
+      "answer": "When traveling to Singapore, it is mandatory for all travelers, including Singapore citizens and permanent residents, to submit a digital health declaration via the SG Arrival Card (SGAC) e-Service prior to their arrival. The mandatory timeframe for submitting this declaration is within three days before the intended date of entry into Singapore. This requirement helps in managing public health risks and facilitates smoother entry procedures. Travelers should ensure they complete the SG Arrival Card e-Service on the official website or through the dedicated mobile app. \n\nPlease note that specific requirements may change based on the latest health guidelines and travel advisories, so it is advisable to check the latest information from official sources closer to your travel date.",
+      "sources": [],
+      "mode": "base_model",
+      "model": "amazon.nova-lite-v1:0"
+    },
+    "rag": {
+      "question": "What is the mandatory entry requirement and timeframe for digital health declaration when traveling to Singapore?",
+      "answer": "The mandatory entry requirement for traveling to Singapore is the digital SG Arrival Card (SGAC) with an electronic health declaration. All inbound travelers, including citizens and tourists, must submit the SGAC online within 3 days prior to arrival. This submission is free of charge and can be done via the official Singapore Immigration & Checkpoints Authority (ICA) portal.\n\nExact source: knowledge-docs/singapore-travel-guide.md",
+      "sources": [
+        "knowledge-docs/singapore-travel-guide.md"
+      ],
+      "mode": "rag",
+      "model": "amazon.nova-lite-v1:0"
+    }
+  },
+  {
+    "id": 2,
+    "topic": "South Korea Tax Refund Policy",
+    "question": "What is the exact minimum purchase threshold per receipt for foreign tourists to claim instant tax refunds in South Korea?",
+    "expected_doc": "knowledge-docs/south-korea-travel-guide.md",
+    "base_model": {
+      "question": "What is the exact minimum purchase threshold per receipt for foreign tourists to claim instant tax refunds in South Korea?",
+      "answer": "In South Korea, foreign tourists can claim instant tax refunds for purchases over a certain minimum threshold per receipt. As of the latest information available, the exact minimum purchase threshold per receipt is 300,000 South Korean Won (KRW). This means that individual purchases must be at least 300,000 KRW to be eligible for an instant tax refund. However, it's always a good idea to check with the specific store or the customs office for the most up-to-date and detailed information, as policies can sometimes change.",
+      "sources": [],
+      "mode": "base_model",
+      "model": "amazon.nova-lite-v1:0"
+    },
+    "rag": {
+      "question": "What is the exact minimum purchase threshold per receipt for foreign tourists to claim instant tax refunds in South Korea?",
+      "answer": "Foreign visitors in South Korea are eligible for instant tax refunds on purchases of 15,000 KRW or more per receipt at certified Tax-Free stores, with a single transaction limit of 1,000,000 KRW.\n\nSource: knowledge-docs/south-korea-travel-guide.md",
+      "sources": [
+        "knowledge-docs/south-korea-travel-guide.md",
+        "knowledge-docs/vietnam-travel-guide.md"
+      ],
+      "mode": "rag",
+      "model": "amazon.nova-lite-v1:0"
+    }
+  },
+  {
+    "id": 3,
+    "topic": "Japan Medication Import & Yakkan Shoumei",
+    "question": "What are the rules and certificate requirements (Yakkan Shoumei) for bringing prescription medication into Japan?",
+    "expected_doc": "knowledge-docs/japan-travel-insurance-and-customs.md",
+    "base_model": {
+      "question": "What are the rules and certificate requirements (Yakkan Shoumei) for bringing prescription medication into Japan?",
+      "answer": "When bringing prescription medication into Japan, there are specific rules and certificate requirements known as \"Yakkan Shoumei\" that you need to follow to ensure compliance with Japanese customs regulations. Here are the general guidelines:\n\n1. **Personal Use**: The medication must be for personal use and not for resale.\n\n2. **Quantity**: The quantity should be sufficient for your period of stay in Japan. Typically, this means you should not bring more than a three-month supply, but this can vary depending on the specific medication and its dosage.\n\n3. **Original Prescription**: You must carry the original prescription from your doctor. This prescription should be in Japanese or accompanied by a Japanese translation.\n\n4. **Doctor's Letter**: It is advisable to have a letter from your doctor stating the name of the medication, the dosage, the duration of use, and that it is for personal use only.\n\n5. **Packaging**: The medication should be in its original packaging with the label clearly showing the patient's name, the name of the medication, and the dosage instructions.\n\n6. **Declaration**: You need to declare the medication to customs upon arrival in Japan. Undeclared medication can be confiscated, and you may face penalties.\n\n7. **Customs Form**: Fill out the customs declaration form accurately, indicating that you are bringing in medication.\n\n8. **Quarantine Inspection**: Your medication might be inspected by Japanese customs and quarantine officials. It is advisable to have all the necessary documents ready for inspection.\n\nIt is important to check the specific requirements with the Japanese embassy or consulate in your country, as regulations can change and may have additional requirements based on the type of medication. Additionally, some medications may require prior approval from the Japanese Ministry of Health, Labour and Welfare, so it’s wise to start this process well in advance if your medication falls into this category.",
+      "sources": [],
+      "mode": "base_model",
+      "model": "amazon.nova-lite-v1:0"
+    },
+    "rag": {
+      "question": "What are the rules and certificate requirements (Yakkan Shoumei) for bringing prescription medication into Japan?",
+      "answer": "If you plan to bring prescription medication into Japan, here are the specific rules and requirements according to the knowledge context provided:\n\n1. **General Supply Limits**:\n   - You are allowed to bring up to a 1-month supply of standard prescription drugs and up to a 2-month supply of non-prescription medication without needing any advance permit.\n\n2. **Controlled Substances**:\n   - Medications containing controlled substances such as pseudoephedrine (e.g., Sudafed), codeine, amphetamines, and medical cannabis/CBD with THC are strictly forbidden under the Stimulants Control Act.\n\n3. **Yakkan Shoumei (Import Certificate)**:\n   - If you need to bring more than a 1-month supply of prescription medicine or injectables (e.g., insulin needles), you must apply for an official \"Yakkan Shoumei\" import approval certificate from the Ministry of Health, Labour and Welfare.\n   - This application must be made online at least 3 weeks prior to your travel.\n\nThese details are provided in the knowledge document \"knowledge-docs/japan-travel-insurance-and-customs.md\" under the section on bringing medication into Japan (Yakkan Shoumei Rules).\n\nSource: knowledge-docs/japan-travel-insurance-and-customs.md",
+      "sources": [
+        "knowledge-docs/japan-travel-insurance-and-customs.md"
+      ],
+      "mode": "rag",
+      "model": "amazon.nova-lite-v1:0"
+    }
+  },
+  {
+    "id": 4,
+    "topic": "Shinkansen Oversized Baggage Regulations",
+    "question": "What are the luggage dimension limits and penalty fees for bringing oversized baggage onto Japan's Shinkansen trains without reservation?",
+    "expected_doc": "knowledge-docs/japan-travel-insurance-and-customs.md",
+    "base_model": {
+      "question": "What are the luggage dimension limits and penalty fees for bringing oversized baggage onto Japan's Shinkansen trains without reservation?",
+      "answer": "When traveling on Japan's Shinkansen (bullet trains), there are specific luggage size and weight limits that passengers must adhere to. Generally, the dimensions for carry-on luggage are approximately 160 cm in total (height + width + depth). Additionally, the size of any single piece of carry-on luggage should not exceed 140 cm in total dimensions.\n\nIf a passenger brings oversized baggage that exceeds these dimensions without a reservation for oversized luggage, they may be subject to penalty fees. These fees can vary, but they typically range from ¥1,000 to ¥3,000 or more, depending on the extent of the size exceedance and the specific policies of the train operator at the time of travel.\n\nIt's always a good idea for passengers to check with the specific train operator or visit their official website for the most accurate and up-to-date information regarding luggage policies and fees.",
+      "sources": [],
+      "mode": "base_model",
+      "model": "amazon.nova-lite-v1:0"
+    },
+    "rag": {
+      "question": "What are the luggage dimension limits and penalty fees for bringing oversized baggage onto Japan's Shinkansen trains without reservation?",
+      "answer": "For Japan's Shinkansen trains, the luggage dimension limits and penalty fees for bringing oversized baggage are as follows:\n\n- **Dimensions Requirement**: Luggage with total dimensions (Length + Width + Height) between 160 cm and 250 cm requires an advance seat reservation with a dedicated oversized baggage area on the Tokaido, Sanyo, and Kyushu Shinkansen lines.\n\n- **Penalty Fee**: If you board without an oversized luggage reservation, you will incur a penalty fee of 1,000 JPY. Additionally, your luggage will be relocated to an area designated by the train conductors.\n\n- **Luggage over 250 cm**: Luggage with dimensions over 250 cm is strictly not permitted on Shinkansen trains.\n\nThese rules are detailed in the document \"knowledge-docs/japan-travel-insurance-and-customs.md\" under section 3: Shinkansen Oversized Luggage Rules.",
+      "sources": [
+        "knowledge-docs/japan-travel-insurance-and-customs.md"
+      ],
+      "mode": "rag",
+      "model": "amazon.nova-lite-v1:0"
+    }
+  },
+  {
+    "id": 5,
+    "topic": "Vietnam 90-Day e-Visa Regulations",
+    "question": "What are the validity period, processing time, and official portal fee for Vietnam's tourist e-Visa?",
+    "expected_doc": "knowledge-docs/vietnam-travel-guide.md",
+    "base_model": {
+      "question": "What are the validity period, processing time, and official portal fee for Vietnam's tourist e-Visa?",
+      "answer": "For Vietnam's tourist e-Visa, the validity period is typically 30 days from the date of entry. The processing time for an e-Visa application is usually 3 business days. The fee for the e-Visa can vary depending on the nationality of the applicant and may include service fees charged by the portal through which the application is submitted. It's advisable to check the specific fee on the official Vietnam e-Visa portal or the website of the Vietnamese immigration authorities.",
+      "sources": [],
+      "mode": "base_model",
+      "model": "amazon.nova-lite-v1:0"
+    },
+    "rag": {
+      "question": "What are the validity period, processing time, and official portal fee for Vietnam's tourist e-Visa?",
+      "answer": "For Vietnam's tourist e-Visa, the validity period is 90 days. The processing time is 3 working days, and the official portal for applying is `evisa.xuatnhapcanh.gov.vn`. The fee for a single entry is 25 USD, and for a multiple entry, it is 50 USD.\n\nExact source document name: vietnam-travel-guide.md",
+      "sources": [
+        "knowledge-docs/vietnam-travel-guide.md",
+        "knowledge-docs/japan-travel-insurance-and-customs.md"
+      ],
+      "mode": "rag",
+      "model": "amazon.nova-lite-v1:0"
+    }
+  }
+]

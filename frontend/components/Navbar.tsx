@@ -17,6 +17,7 @@ import {
   LogOut,
   LogIn,
   UserPlus,
+  Bot,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -32,6 +33,7 @@ export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
 
   const isHomePage = pathname === "/";
   const isTripsPage = pathname === "/trips";
+  const isAssistantPage = pathname === "/assistant";
   const isProfilePage = pathname === "/profile";
 
   const handleLogout = () => {
@@ -97,6 +99,18 @@ export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
               }`}
             >
               <FolderOpen className="w-4 h-4 text-sky-600" /> My Trips
+            </Link>
+
+            {/* Travel Knowledge Assistant (Session 09 RAG) */}
+            <Link
+              href="/assistant"
+              className={`text-sm font-semibold transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl ${
+                isAssistantPage
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80 font-bold"
+                  : "text-slate-700 hover:text-emerald-600 hover:bg-slate-50"
+              }`}
+            >
+              <Bot className="w-4 h-4 text-emerald-600" /> AI Assistant
             </Link>
 
             <Link
@@ -240,6 +254,13 @@ export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
             className="block px-3 py-2 rounded-lg text-base font-medium text-slate-800 hover:bg-sky-50 hover:text-sky-700 font-semibold"
           >
             ✦ My Trips Dashboard
+          </Link>
+          <Link
+            href="/assistant"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-lg text-base font-medium text-emerald-800 bg-emerald-50/50 hover:bg-emerald-100 hover:text-emerald-900 font-semibold"
+          >
+            ✦ Travel AI Assistant (RAG)
           </Link>
           {isAuthenticated && (
             <Link

@@ -1,5 +1,6 @@
-# Documentation files (as requested)
-docs/
+# Documentation slides (PDFs)
+docs/*.pdf
+docs/*:Zone.Identifier
 *.Zone.Identifier
 *:Zone.Identifier
 
