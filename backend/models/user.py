@@ -28,3 +28,6 @@ class User(Base):
 
     # Relasi one-to-many: satu user dapat memiliki banyak data trips
     trips = relationship("Trip", back_populates="user", cascade="all, delete-orphan")
+
+    # Relasi one-to-many: satu user dapat memiliki banyak sesi percakapan
+    conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")

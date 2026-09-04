@@ -33,6 +33,8 @@ def init_db() -> None:
     # Ensure models are imported so Base metadata registers them
     import models.trip  # noqa: F401
     import models.user  # noqa: F401
+    import models.conversation  # noqa: F401
+    import models.message  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     try:

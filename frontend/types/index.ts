@@ -131,3 +131,32 @@ export interface KnowledgeDocumentListResponse {
   documents: KnowledgeDocumentInfo[];
 }
 
+export interface Conversation {
+  id: number;
+  conversation_id: number;
+  title: string;
+  created_at: string;
+  updated_at?: string;
+  message_count?: number;
+}
+
+export interface ChatMessage {
+  id: number;
+  conversation_id: number;
+  role: "user" | "assistant" | "system";
+  content: string;
+  created_at: string;
+}
+
+export interface ConversationDetail extends Conversation {
+  messages: ChatMessage[];
+}
+
+export interface CreateConversationRequest {
+  title?: string;
+}
+
+export interface SendMessageRequest {
+  content: string;
+}
+

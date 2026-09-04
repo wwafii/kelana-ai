@@ -24,22 +24,27 @@ KelanaAi/
 │   └── run_rag_evaluation.py     # Script evaluasi otomatis 5 pertanyaan pengujian RAG vs Base
 ├── backend/
 │   ├── database.py                # Persistence Layer (DB Engine, SessionLocal, get_db Dependency & Schema Migration)
-│   ├── main.py                    # Web Layer (FastAPI REST API CRUD, Auth, AI & RAG Assistant Endpoints)
+│   ├── main.py                    # Web Layer (FastAPI REST API CRUD, Auth, AI, RAG & Conversational Memory Endpoints)
 │   ├── models/                    # Data Layer (SQLAlchemy ORM Models)
 │   │   ├── __init__.py
-│   │   ├── user.py                # Model Tabel User (id, name, email, password_hash, relationship to trips)
-│   │   └── trip.py                # Model Tabel Trip (destinasi, hari, budget, kategori, gaya perjalanan, rekomendasi AI, user_id FK)
-│   └── services/                  # Business Logic, Auth, AI & Knowledge Base Layer
+│   │   ├── user.py                # Model Tabel User (id, name, email, password_hash, relationship to trips & conversations)
+│   │   ├── trip.py                # Model Tabel Trip (destinasi, hari, budget, kategori, gaya perjalanan, rekomendasi AI, user_id FK)
+│   │   ├── conversation.py        # Model Tabel Conversation (id, user_id FK, title, created_at, updated_at)
+│   │   └── message.py             # Model Tabel Message (id, conversation_id FK, role, content, created_at)
+│   └── services/                  # Business Logic, Auth, AI, RAG & Memory Layer
 │       ├── __init__.py
 │       ├── auth_service.py        # Security & Identity: Password Hashing (bcrypt), JWT generation/verification, get_current_user
 │       ├── trip_service.py        # Logic: Category, Season, Daily Budget, Transport & Destination Recommendations
 │       ├── bedrock_service.py     # AI Integration: Amazon Bedrock Converse API & Prompt Engineering
-│       └── kb_service.py          # RAG & Knowledge Base Integration (boto3 bedrock-agent-runtime & Local Grounding)
+│       ├── kb_service.py          # RAG & Knowledge Base Integration (boto3 bedrock-agent-runtime & Local Grounding)
+│       └── conversation_service.py# Conversational Memory & Multi-turn Context Reconstruction
 ├── frontend/                      # User Interface Layer (Next.js 15, React 19, Tailwind CSS)
 │   ├── app/
 │   │   ├── globals.css            # Tailwind CSS styling & custom animations
 │   │   ├── layout.tsx             # Root layout with AuthProvider & typography
 │   │   ├── page.tsx               # / -> Home & AI Travel Planner Generator (Protected)
+│   │   ├── chat/
+│   │   │   └── page.tsx           # /chat -> Conversational AI Chat Interface with 4 UX Wins (Protected)
 │   │   ├── assistant/
 │   │   │   └── page.tsx           # /assistant -> Travel AI Assistant (RAG Grounded & Side-by-Side Comparison)
 │   │   ├── login/
@@ -54,7 +59,7 @@ KelanaAi/
 │   │           └── page.tsx       # /trips/[id] -> Dynamic Route: Detailed Itinerary View & AI Generator (Protected & Ownership Checked)
 │   ├── components/                # Reusable UI Component Library
 │   │   ├── ProtectedRoute.tsx     # Route Guard with automatic redirect to /login
-│   │   ├── Navbar.tsx             # Responsive sticky navigation header with AI Assistant link & user identity
+│   │   ├── Navbar.tsx             # Responsive sticky navigation header with Chat AI link & user identity
 │   │   ├── Hero.tsx               # Destination hero visual banner & quick suggestion pills
 │   │   ├── TravelForm.tsx         # Responsive travel planner form with real-time budget calculation
 │   │   ├── TripCard.tsx           # Rich trip cards (Flags, Landmarks, Currency Format, Category & Style Badges)
@@ -71,7 +76,8 @@ KelanaAi/
 │   ├── services/                  # Networking / API Client Layer
 │   │   ├── authService.ts         # Authentication API client (login, register, getCurrentUser, token management)
 │   │   ├── tripService.ts         # Centralized API service layer with JWT Authorization headers
-│   │   └── assistantService.ts    # AI Assistant & Knowledge Base API client (RAG query, compare, list documents)
+│   │   ├── assistantService.ts    # AI Assistant & Knowledge Base API client (RAG query, compare, list documents)
+│   │   └── chatService.ts         # Conversational Memory API client (conversations, messages, multi-turn chat)
 │   ├── lib/
 │   │   ├── api.ts                 # Re-export API service for backward compatibility
 │   │   └── parser.ts              # Intelligent itinerary markdown/text parser
@@ -80,6 +86,7 @@ KelanaAi/
 └── tests/                         # Automated Test Suite (Pytest)
     ├── test_api.py                # REST API Integration, Auth & Ownership Protection Tests
     ├── test_bedrock_service.py    # Amazon Bedrock AI service tests
+    ├── test_conversation.py       # Conversational Memory & Multi-turn Chat Integration Tests
     ├── test_kb_service.py         # Knowledge Base & RAG service unit and integration tests
     └── test_trip_service.py       # Pure business logic unit tests
 ```
@@ -161,6 +168,25 @@ KelanaAi/
   - `scripts/sync_knowledge_base.sh`: Script otomatis untuk sinkronisasi dokumen lokal ke S3 dan memicu Bedrock Ingestion Job.
   - `scripts/run_rag_evaluation.py`: Script evaluasi komprehensif untuk menguji 5 pertanyaan spesifik.
 
+### 10. Sesi 10: Teaching KelanaAI to Remember Conversations (Conversational Memory & Multi-turn Chat)
+- 💬 **Conversational Memory Architecture**:
+  - Mengimplementasikan pemahaman bahwa LLM bersifat *stateless*; aplikasi bertanggung jawab mengelola dan merekonstruksi riwayat memori (*The application owns the memory*).
+  - Skema database relasional: tabel `conversations` (id, user_id FK, title, created_at, updated_at) dan `messages` (id, conversation_id FK, role, content, created_at).
+  - **Prompt Builder & Context Window Trimming**: Menjaga batas konteks percakapan multi-turn dengan mengumpulkan riwayat pesan sebelumnya (recent turns) secara terstruktur sebelum dikirim ke Amazon Bedrock Converse API.
+- 📡 **Conversational Memory REST Endpoints**:
+  - `POST /api/v1/conversations`: Membuat sesi percakapan baru untuk user terautentikasi (201 Created).
+  - `GET /api/v1/conversations`: Mengambil daftar percakapan milik pengguna (Ownership Protected).
+  - `GET /api/v1/conversations/{id}`: Mengambil detail percakapan beserta seluruh riwayat pesan.
+  - `GET /api/v1/conversations/{id}/messages`: Mengambil daftar pesan terurut kronologis.
+  - `POST /api/v1/conversations/{id}/messages`: Mengirimkan pesan baru, merekonstruksi riwayat multi-turn, memanggil Bedrock Converse API, dan menyimpan respons AI ke database.
+  - `PATCH /api/v1/conversations/{id}`: Mengubah nama/judul percakapan (*Rename Conversations*).
+  - `DELETE /api/v1/conversations/{id}`: Menghapus sesi percakapan beserta seluruh riwayat pesannya secara cascade.
+- 🎨 **Next.js Chat Experience (`/chat`) dengan 4 UX Wins**:
+  1. **Conversation title**: Menampilkan judul percakapan di bagian atas header antarmuka obrolan dengan kontrol edit/rename langsung.
+  2. **Auto-scroll to latest message**: Scroll otomatis ke bawah mencakup dua skenario utama (saat pertama kali membuka percakapan agar pesan terbaru langsung terlihat, serta scroll otomatis segera setelah mengirim pesan baru dan menerima jawaban AI).
+  3. **Typing indicator**: Indikator visual animasi 3 bouncing dots dan teks status saat AI sedang berpikir dan menyusun rekomendasi.
+  4. **Timestamp for each message**: Penanda waktu pembuatan pesan terformat rapi pada setiap gelembung obrolan pengguna maupun balasan AI.
+
 ---
 
 ## 🛠️ Cara Menjalankan Aplikasi
@@ -212,6 +238,7 @@ npm run dev
 ```
 
 2. Buka antarmuka aplikasi di browser:
+* **Conversational AI Chat (Memory)**: [http://localhost:3000/chat](http://localhost:3000/chat)
 * **AI Travel Assistant (RAG)**: [http://localhost:3000/assistant](http://localhost:3000/assistant)
 * **Home / Generator**: [http://localhost:3000](http://localhost:3000)
 * **Trip History Dashboard**: [http://localhost:3000/trips](http://localhost:3000/trips)
@@ -227,7 +254,7 @@ Jalankan suite pengujian unit dan integrasi Pytest:
 ```bash
 pytest -v
 ```
-*Hasil: 45 test cases passed (Knowledge Base Service, Local Grounding Retriever, RAG & Base Model Invocations, REST API Endpoints, Authentication, Authorization, Ownership Protection 403/401, Business Logic & Database Persistence).*
+*Hasil: 50 test cases passed (Conversational Memory & Multi-turn Chat, Knowledge Base Service, Local Grounding Retriever, RAG & Base Model Invocations, REST API Endpoints, Authentication, Authorization, Ownership Protection 403/401, Business Logic & Database Persistence).*
 
 ---
 
@@ -250,3 +277,10 @@ pytest -v
 | `POST` | `/api/v1/ask` | No | Alias endpoint RAG sesuai silabus Sesi 09 |
 | `POST` | `/api/v1/assistant/compare` | No | Membandingkan respons Base Model vs Grounded RAG untuk pertanyaan yang sama |
 | `GET` | `/api/v1/assistant/documents` | No | Mengambil daftar dokumen perjalanan terindeks di Knowledge Base |
+| `POST` | `/api/v1/conversations` | **Bearer JWT** | Membuat sesi percakapan baru untuk user (mengembalikan `conversation_id`) |
+| `GET` | `/api/v1/conversations` | **Bearer JWT** | Mengambil daftar seluruh riwayat percakapan milik pengguna yang login |
+| `GET` | `/api/v1/conversations/{id}` | **Bearer JWT** | Mengambil detail sesi percakapan dan seluruh riwayat pesannya |
+| `GET` | `/api/v1/conversations/{id}/messages` | **Bearer JWT** | Mengambil daftar pesan terurut kronologis dalam percakapan |
+| `POST` | `/api/v1/conversations/{id}/messages` | **Bearer JWT** | Mengirim pesan, merekonstruksi konteks multi-turn, panggil Bedrock, simpan balasan |
+| `PATCH` | `/api/v1/conversations/{id}` | **Bearer JWT** | Mengubah nama/judul percakapan (*Rename conversation*) |
+| `DELETE` | `/api/v1/conversations/{id}` | **Bearer JWT** | Menghapus sesi percakapan beserta pesan di dalamnya |

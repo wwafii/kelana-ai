@@ -9,7 +9,7 @@ dan Persistence Layer (database PostgreSQL via SQLAlchemy ORM).
 
 import os
 import sys
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -19,6 +19,8 @@ from sqlalchemy.orm import Session
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from database import get_db, init_db
+from models.conversation import Conversation
+from models.message import Message
 from models.trip import Trip
 from models.user import User
 from services.auth_service import (
@@ -28,6 +30,15 @@ from services.auth_service import (
     register_user,
 )
 from services.bedrock_service import generate_travel_recommendation
+from services.conversation_service import (
+    create_conversation,
+    delete_conversation,
+    get_conversation,
+    get_conversation_messages,
+    list_conversations,
+    send_message_and_get_reply,
+    update_conversation_title,
+)
 from services.kb_service import (
     ask_base_model,
     ask_knowledge_base,
@@ -41,8 +52,8 @@ from services.trip_service import (
 
 app = FastAPI(
     title="KelanaAI",
-    description="RESTful Web API with JWT Authentication, PostgreSQL Persistence, Amazon Bedrock Knowledge Bases & RAG",
-    version="0.7.0",
+    description="RESTful Web API with JWT Authentication, PostgreSQL Persistence, Bedrock Conversational Memory & RAG",
+    version="0.8.0",
 )
 
 # Konfigurasi CORS agar frontend Next.js (http://localhost:3000) dapat mengakses REST API
@@ -202,6 +213,60 @@ class AssistantDocumentListResponse(BaseModel):
     """
     total_documents: int
     documents: List[AssistantDocumentInfo]
+
+
+# ==========================================
+# Pydantic Schemas - Conversational Memory & Chat (Session 10)
+# ==========================================
+
+class ConversationCreateRequest(BaseModel):
+    """Schema model untuk membuat sesi percakapan baru."""
+    title: Optional[str] = Field(None, max_length=256, description="Judul sesi percakapan", examples=["Japan Family Trip"])
+
+
+class ConversationUpdateRequest(BaseModel):
+    """Schema model untuk memperbarui judul percakapan (Rename)."""
+    title: str = Field(..., min_length=1, max_length=256, description="Judul baru untuk percakapan", examples=["Japan Family Trip 2025"])
+
+
+class MessageSendRequest(BaseModel):
+    """Schema model untuk mengirim pesan baru ke asisten percakapan."""
+    content: str = Field(..., min_length=1, description="Isi pesan dari pengguna", examples=["Plan a family trip to Japan."])
+
+
+class MessageResponse(BaseModel):
+    """Schema model respons satu pesan dalam percakapan."""
+    id: int
+    conversation_id: int
+    role: str
+    content: str
+    created_at: Any
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ConversationResponse(BaseModel):
+    """Schema model respons ringkas entitas percakapan."""
+    id: int
+    conversation_id: int
+    title: str
+    created_at: Any
+    updated_at: Optional[Any] = None
+    message_count: Optional[int] = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ConversationDetailResponse(BaseModel):
+    """Schema model respons detail percakapan beserta riwayat lengkap pesan."""
+    id: int
+    conversation_id: int
+    title: str
+    created_at: Any
+    updated_at: Optional[Any] = None
+    messages: List[MessageResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ==========================================
@@ -604,4 +669,182 @@ def list_knowledge_documents() -> AssistantDocumentListResponse:
             for d in docs
         ],
     )
+
+
+# ==========================================
+# Conversational Memory & Chat Endpoints (Session 10)
+# ==========================================
+
+@app.post(
+    "/api/v1/conversations",
+    response_model=ConversationResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create New Conversation",
+    description="Membuat sesi percakapan baru untuk pengguna terautentikasi dan mengembalikan identifier.",
+)
+def api_create_conversation(
+    request: Optional[ConversationCreateRequest] = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ConversationResponse:
+    title = request.title if request else None
+    conversation = create_conversation(db, user_id=user.id, title=title)
+    return ConversationResponse(
+        id=conversation.id,
+        conversation_id=conversation.id,
+        title=conversation.title,
+        created_at=conversation.created_at,
+        updated_at=conversation.updated_at,
+        message_count=0,
+    )
+
+
+@app.get(
+    "/api/v1/conversations",
+    response_model=List[ConversationResponse],
+    summary="List User's Conversations",
+    description="Mengambil daftar seluruh riwayat percakapan milik pengguna yang terautentikasi.",
+)
+def api_list_conversations(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> List[ConversationResponse]:
+    conversations = list_conversations(db, user_id=user.id)
+    return [
+        ConversationResponse(
+            id=c.id,
+            conversation_id=c.id,
+            title=c.title,
+            created_at=c.created_at,
+            updated_at=c.updated_at,
+            message_count=len(c.messages) if c.messages else 0,
+        )
+        for c in conversations
+    ]
+
+
+@app.get(
+    "/api/v1/conversations/{id}",
+    response_model=ConversationDetailResponse,
+    summary="Get Conversation Detail and History",
+    description="Mengambil satu sesi percakapan beserta seluruh daftar pesan riwayatnya.",
+)
+def api_get_conversation(
+    id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ConversationDetailResponse:
+    conversation = get_conversation(db, conversation_id=id, user_id=user.id)
+    messages = get_conversation_messages(db, conversation_id=id, user_id=user.id)
+    return ConversationDetailResponse(
+        id=conversation.id,
+        conversation_id=conversation.id,
+        title=conversation.title,
+        created_at=conversation.created_at,
+        updated_at=conversation.updated_at,
+        messages=[
+            MessageResponse(
+                id=m.id,
+                conversation_id=m.conversation_id,
+                role=m.role,
+                content=m.content,
+                created_at=m.created_at,
+            )
+            for m in messages
+        ],
+    )
+
+
+@app.get(
+    "/api/v1/conversations/{id}/messages",
+    response_model=List[MessageResponse],
+    summary="Get Messages for Conversation",
+    description="Mengambil riwayat pesan dari percakapan tertentu.",
+)
+def api_get_messages(
+    id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> List[MessageResponse]:
+    messages = get_conversation_messages(db, conversation_id=id, user_id=user.id)
+    return [
+        MessageResponse(
+            id=m.id,
+            conversation_id=m.conversation_id,
+            role=m.role,
+            content=m.content,
+            created_at=m.created_at,
+        )
+        for m in messages
+    ]
+
+
+@app.post(
+    "/api/v1/conversations/{id}/messages",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Send Message in Conversation",
+    description="Mengirim pesan pengguna, membangun konteks percakapan multi-turn, memanggil Bedrock, dan menyimpan balasan AI.",
+)
+def api_send_message(
+    id: int,
+    request: MessageSendRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    ai_message = send_message_and_get_reply(
+        db=db,
+        conversation_id=id,
+        user_id=user.id,
+        user_content=request.content,
+    )
+    return MessageResponse(
+        id=ai_message.id,
+        conversation_id=ai_message.conversation_id,
+        role=ai_message.role,
+        content=ai_message.content,
+        created_at=ai_message.created_at,
+    )
+
+
+@app.patch(
+    "/api/v1/conversations/{id}",
+    response_model=ConversationResponse,
+    summary="Rename Conversation (Bonus Challenge)",
+    description="Mengubah judul sesi percakapan.",
+)
+def api_update_conversation_title(
+    id: int,
+    request: ConversationUpdateRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ConversationResponse:
+    conversation = update_conversation_title(
+        db=db,
+        conversation_id=id,
+        user_id=user.id,
+        new_title=request.title,
+    )
+    return ConversationResponse(
+        id=conversation.id,
+        conversation_id=conversation.id,
+        title=conversation.title,
+        created_at=conversation.created_at,
+        updated_at=conversation.updated_at,
+        message_count=len(conversation.messages) if conversation.messages else 0,
+    )
+
+
+@app.delete(
+    "/api/v1/conversations/{id}",
+    summary="Delete Conversation",
+    description="Menghapus sesi percakapan beserta seluruh pesan di dalamnya.",
+)
+def api_delete_conversation(
+    id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    delete_conversation(db, conversation_id=id, user_id=user.id)
+    return {"message": f"Conversation with id {id} deleted successfully"}
 

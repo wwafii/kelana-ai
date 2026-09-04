@@ -18,6 +18,7 @@ import {
   LogIn,
   UserPlus,
   Bot,
+  MessageSquare,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -34,6 +35,7 @@ export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
   const isHomePage = pathname === "/";
   const isTripsPage = pathname === "/trips";
   const isAssistantPage = pathname === "/assistant";
+  const isChatPage = pathname === "/chat";
   const isProfilePage = pathname === "/profile";
 
   const handleLogout = () => {
@@ -111,6 +113,18 @@ export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
               }`}
             >
               <Bot className="w-4 h-4 text-emerald-600" /> AI Assistant
+            </Link>
+
+            {/* AI Conversational Chat (Session 10 Conversational Memory) */}
+            <Link
+              href="/chat"
+              className={`text-sm font-semibold transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl ${
+                isChatPage
+                  ? "bg-sky-50 text-sky-700 border border-sky-200/80 font-bold"
+                  : "text-slate-700 hover:text-sky-600 hover:bg-slate-50"
+              }`}
+            >
+              <MessageSquare className="w-4 h-4 text-sky-600" /> Chat AI
             </Link>
 
             <Link
@@ -261,6 +275,13 @@ export default function Navbar({ onPlanClick, onExploreClick }: NavbarProps) {
             className="block px-3 py-2 rounded-lg text-base font-medium text-emerald-800 bg-emerald-50/50 hover:bg-emerald-100 hover:text-emerald-900 font-semibold"
           >
             ✦ Travel AI Assistant (RAG)
+          </Link>
+          <Link
+            href="/chat"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-lg text-base font-medium text-sky-800 bg-sky-50/50 hover:bg-sky-100 hover:text-sky-900 font-semibold"
+          >
+            ✦ Chat AI (Conversational Memory)
           </Link>
           {isAuthenticated && (
             <Link
